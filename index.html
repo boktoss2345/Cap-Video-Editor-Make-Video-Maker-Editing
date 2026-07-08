@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Video Editor Studio Maker</title>
     <style>
+        /* Keep all existing styles exactly as they are */
         :root {
             --bg: #FFFFFF;
             --surface: #F5F5F5;
@@ -744,10 +745,15 @@
 <div id="modal-container"></div>
 <script>
     (function() {
+        // Helper function to select elements
         const $ = (s) => document.querySelector(s);
+        const $$ = (s) => document.querySelectorAll(s);
+        
+        // Canvas and main elements
         const mainCanvas = $('#main-canvas');
         const ctx = mainCanvas.getContext('2d');
         const dropOverlay = $('#drop-overlay');
+        const previewArea = $('#preview-area');
         const seekBar = $('#seek-bar');
         const timeDisplay = $('#time-display');
         const volumeSlider = $('#volume-slider');
@@ -758,83 +764,2012 @@
         const btnMute = $('#btn-mute');
         const leftPanel = $('#left-panel');
         const rightPanel = $('#right-panel');
+        
+        // State management with history for undo/redo
         const state = {
-            videoSources: [], audioSources: [], currentVideoIndex: 0, overlays: [], selectedOverlayId: null,
-            isPlaying: false, currentTime: 0, duration: 0, volume: 0.8, muted: false, speed: 1, zoom: 1,
-            filters: { brightness:100, contrast:100, saturation:100, blur:0, vignette:0, grayscale:0, invert:0, sepia:0 },
-            activeFilter:'brightness', transition:null, transitionProgress:0, undoStack:[], redoStack:[],
-            trimStart:0, trimEnd:null, cropRegion:null, flipH:false, flipV:false, rotation:0,
-            musicGainNode:null, musicVolume:0.5, musicLoop:false, animationFrameId:null
+            videoSources: [],
+            audioSources: [],
+            currentVideoIndex: 0,
+            overlays: [],
+            selectedOverlayId: null,
+            isPlaying: false,
+            currentTime: 0,
+            duration: 0,
+            volume: 0.8,
+            muted: false,
+            speed: 1,
+            zoom: 1,
+            filters: { 
+                brightness: 100, 
+                contrast: 100, 
+                saturation: 100, 
+                blur: 0, 
+                vignette: 0, 
+                grayscale: 0, 
+                invert: 0, 
+                sepia: 0 
+            },
+            activeFilter: 'brightness',
+            transition: null,
+            transitionProgress: 0,
+            undoStack: [],
+            redoStack: [],
+            trimStart: 0,
+            trimEnd: null,
+            cropRegion: null,
+            flipH: false,
+            flipV: false,
+            rotation: 0,
+            musicGainNode: null,
+            musicVolume: 0.5,
+            musicLoop: false,
+            animationFrameId: null,
+            isDraggingOverlay: false,
+            dragStartX: 0,
+            dragStartY: 0
         };
+        
         let overlayIdCounter = 0;
         const generateId = () => 'ovl_' + (++overlayIdCounter);
+        
+        // Media elements
         const videoElement = document.createElement('video');
-        videoElement.crossOrigin = 'anonymous'; videoElement.preload = 'auto'; videoElement.playsInline = true;
+        videoElement.crossOrigin = 'anonymous';
+        videoElement.preload = 'auto';
+        videoElement.playsInline = true;
+        videoElement.muted = false;
+        
         const musicElement = document.createElement('audio');
-        musicElement.crossOrigin = 'anonymous'; musicElement.preload = 'auto';
+        musicElement.crossOrigin = 'anonymous';
+        musicElement.preload = 'auto';
+        musicElement.loop = true;
+        
         let audioCtx = null;
-        function init() {
-            setupEventListeners(); updateTimelineUI(); renderFrame(0); updateTimeDisplay(); updateCanvasSize();
-            toastMsg('Video Editor Studio Maker ready.');
+        let musicSource = null;
+        
+        // Emoji and sticker collections
+        const emojiList = ['😀', '😂', '❤️', '🔥', '⭐', '🎉', '👍', '💯', '😍', '🤩', '😎', '🥳', '🎨', '🎵', '🌈', '💪', '✨', '🌟', '💖', '🎯', '🏆', '💎', '🦄', '🌸', '🍕'];
+        const stickerList = ['⭐', '❤️', '🎯', '🔥', '💎', '🌟', '✨', '🎨', '🎵', '🌈', '🦋', '🌺', '🍀', '🎪', '🎭', '💫', '🕊️', '🌙', '☀️', '⚡'];
+        
+        // Save state before modification for undo
+        function saveStateForUndo() {
+            const stateCopy = JSON.parse(JSON.stringify({
+                overlays: state.overlays,
+                filters: state.filters,
+                trimStart: state.trimStart,
+                trimEnd: state.trimEnd,
+                rotation: state.rotation,
+                flipH: state.flipH,
+                flipV: state.flipV,
+                speed: state.speed
+            }));
+            state.undoStack.push(stateCopy);
+            if (state.undoStack.length > 50) state.undoStack.shift();
+            state.redoStack = [];
         }
+        
+        // Undo function
+        function undo() {
+            if (state.undoStack.length === 0) {
+                toastMsg('Nothing to undo');
+                return;
+            }
+            const currentState = JSON.parse(JSON.stringify({
+                overlays: state.overlays,
+                filters: state.filters,
+                trimStart: state.trimStart,
+                trimEnd: state.trimEnd,
+                rotation: state.rotation,
+                flipH: state.flipH,
+                flipV: state.flipV,
+                speed: state.speed
+            }));
+            state.redoStack.push(currentState);
+            
+            const previousState = state.undoStack.pop();
+            state.overlays = previousState.overlays;
+            state.filters = previousState.filters;
+            state.trimStart = previousState.trimStart;
+            state.trimEnd = previousState.trimEnd;
+            state.rotation = previousState.rotation;
+            state.flipH = previousState.flipH;
+            state.flipV = previousState.flipV;
+            state.speed = previousState.speed;
+            
+            if (state.trimEnd !== null) {
+                videoElement.currentTime = state.trimStart;
+            }
+            videoElement.playbackRate = state.speed;
+            speedSelect.value = state.speed;
+            
+            updateTimelineUI();
+            renderFrame(state.currentTime);
+            updateFilterUI();
+            toastMsg('Undo');
+        }
+        
+        // Redo function
+        function redo() {
+            if (state.redoStack.length === 0) {
+                toastMsg('Nothing to redo');
+                return;
+            }
+            const currentState = JSON.parse(JSON.stringify({
+                overlays: state.overlays,
+                filters: state.filters,
+                trimStart: state.trimStart,
+                trimEnd: state.trimEnd,
+                rotation: state.rotation,
+                flipH: state.flipH,
+                flipV: state.flipV,
+                speed: state.speed
+            }));
+            state.undoStack.push(currentState);
+            
+            const nextState = state.redoStack.pop();
+            state.overlays = nextState.overlays;
+            state.filters = nextState.filters;
+            state.trimStart = nextState.trimStart;
+            state.trimEnd = nextState.trimEnd;
+            state.rotation = nextState.rotation;
+            state.flipH = nextState.flipH;
+            state.flipV = nextState.flipV;
+            state.speed = nextState.speed;
+            
+            if (state.trimEnd !== null) {
+                videoElement.currentTime = state.trimStart;
+            }
+            videoElement.playbackRate = state.speed;
+            speedSelect.value = state.speed;
+            
+            updateTimelineUI();
+            renderFrame(state.currentTime);
+            updateFilterUI();
+            toastMsg('Redo');
+        }
+        
+        // Reset project
+        function resetProject() {
+            if (confirm('Are you sure you want to reset the project? All unsaved changes will be lost.')) {
+                state.videoSources = [];
+                state.audioSources = [];
+                state.overlays = [];
+                state.currentVideoIndex = 0;
+                state.isPlaying = false;
+                state.currentTime = 0;
+                state.duration = 0;
+                state.trimStart = 0;
+                state.trimEnd = null;
+                state.rotation = 0;
+                state.flipH = false;
+                state.flipV = false;
+                state.filters = { 
+                    brightness: 100, 
+                    contrast: 100, 
+                    saturation: 100, 
+                    blur: 0, 
+                    vignette: 0, 
+                    grayscale: 0, 
+                    invert: 0, 
+                    sepia: 0 
+                };
+                state.undoStack = [];
+                state.redoStack = [];
+                
+                videoElement.src = '';
+                videoElement.pause();
+                btnPlay.textContent = '▶';
+                seekBar.value = 0;
+                speedSelect.value = '1';
+                
+                updateTimelineUI();
+                renderFrame(0);
+                updateTimeDisplay();
+                updateFilterUI();
+                toastMsg('Project reset');
+            }
+        }
+        
+        // Initialize audio context
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                state.musicGainNode = audioCtx.createGain();
+                state.musicGainNode.connect(audioCtx.destination);
+                state.musicGainNode.gain.value = state.musicVolume;
+                
+                // Connect music element to audio context
+                musicSource = audioCtx.createMediaElementSource(musicElement);
+                musicSource.connect(state.musicGainNode);
+            }
+        }
+        
+        // Main initialization
+        function init() {
+            setupEventListeners();
+            updateTimelineUI();
+            renderFrame(0);
+            updateTimeDisplay();
+            updateCanvasSize();
+            updateFilterUI();
+            toastMsg('Video Editor Studio Maker ready. Click Import Video to start!');
+        }
+        
+        // Setup all event listeners
         function setupEventListeners() {
+            // Video element events
             videoElement.addEventListener('loadedmetadata', () => {
-                if (state.trimEnd === null) state.trimEnd = videoElement.duration;
-                state.duration = videoElement.duration; seekBar.max = state.duration*100; updateTimeDisplay(); updateTimelineUI();
+                if (state.trimEnd === null) {
+                    state.trimEnd = videoElement.duration;
+                }
+                state.duration = videoElement.duration;
+                seekBar.max = state.duration * 100;
+                seekBar.value = 0;
+                updateTimeDisplay();
+                updateTimelineUI();
             });
-            videoElement.addEventListener('timeupdate', () => { if(!state.isDraggingOverlay){ state.currentTime=videoElement.currentTime; seekBar.value=state.currentTime*100; updateTimeDisplay(); } });
-            videoElement.addEventListener('ended', ()=>{ state.isPlaying=false; btnPlay.textContent='▶'; });
+            
+            videoElement.addEventListener('timeupdate', () => {
+                if (!state.isDraggingOverlay) {
+                    state.currentTime = videoElement.currentTime;
+                    seekBar.value = state.currentTime * 100;
+                    updateTimeDisplay();
+                }
+            });
+            
+            videoElement.addEventListener('ended', () => {
+                state.isPlaying = false;
+                btnPlay.textContent = '▶';
+                if (state.animationFrameId) {
+                    cancelAnimationFrame(state.animationFrameId);
+                    state.animationFrameId = null;
+                }
+            });
+            
+            videoElement.addEventListener('error', (e) => {
+                console.error('Video error:', e);
+                toastMsg('Error loading video');
+            });
+            
+            // Playback controls
             btnPlay.addEventListener('click', togglePlay);
-            $('#btn-stop').addEventListener('click', ()=>{ videoElement.pause(); state.isPlaying=false; btnPlay.textContent='▶'; videoElement.currentTime=state.trimStart; });
-            seekBar.addEventListener('input', ()=>{ const t=parseFloat(seekBar.value)/100; videoElement.currentTime=t; state.currentTime=t; if(!state.isPlaying) renderFrame(t); });
-            volumeSlider.addEventListener('input', ()=>{ state.volume=parseInt(volumeSlider.value)/100; videoElement.volume=state.muted?0:state.volume; });
-            btnMute.addEventListener('click', ()=>{ state.muted=!state.muted; videoElement.volume=state.muted?0:state.volume; btnMute.textContent=state.muted?'🔇':'🔊'; });
-            speedSelect.addEventListener('change', ()=>{ state.speed=parseFloat(speedSelect.value); videoElement.playbackRate=state.speed; });
-            $('#btn-import-video').addEventListener('click', ()=>$('#file-input-video').click());
-            $('#btn-import-audio').addEventListener('click', ()=>$('#file-input-audio').click());
+            
+            $('#btn-stop').addEventListener('click', () => {
+                saveStateForUndo();
+                videoElement.pause();
+                state.isPlaying = false;
+                btnPlay.textContent = '▶';
+                if (state.animationFrameId) {
+                    cancelAnimationFrame(state.animationFrameId);
+                    state.animationFrameId = null;
+                }
+                videoElement.currentTime = state.trimStart;
+                state.currentTime = state.trimStart;
+                renderFrame(state.currentTime);
+            });
+            
+            $('#btn-skip-back').addEventListener('click', () => {
+                const newTime = Math.max(state.trimStart, state.currentTime - 5);
+                videoElement.currentTime = newTime;
+                state.currentTime = newTime;
+                renderFrame(newTime);
+            });
+            
+            $('#btn-skip-fwd').addEventListener('click', () => {
+                const maxTime = state.trimEnd || state.duration;
+                const newTime = Math.min(maxTime, state.currentTime + 5);
+                videoElement.currentTime = newTime;
+                state.currentTime = newTime;
+                renderFrame(newTime);
+            });
+            
+            // Seek bar
+            seekBar.addEventListener('input', () => {
+                const t = parseFloat(seekBar.value) / 100;
+                videoElement.currentTime = t;
+                state.currentTime = t;
+                if (!state.isPlaying) renderFrame(t);
+            });
+            
+            seekBar.addEventListener('change', () => {
+                const t = parseFloat(seekBar.value) / 100;
+                videoElement.currentTime = t;
+                state.currentTime = t;
+            });
+            
+            // Volume controls
+            volumeSlider.addEventListener('input', () => {
+                state.volume = parseInt(volumeSlider.value) / 100;
+                videoElement.volume = state.muted ? 0 : state.volume;
+            });
+            
+            btnMute.addEventListener('click', () => {
+                state.muted = !state.muted;
+                videoElement.volume = state.muted ? 0 : state.volume;
+                btnMute.textContent = state.muted ? '🔇' : '🔊';
+            });
+            
+            // Speed control
+            speedSelect.addEventListener('change', () => {
+                saveStateForUndo();
+                state.speed = parseFloat(speedSelect.value);
+                videoElement.playbackRate = state.speed;
+            });
+            
+            // File import buttons
+            $('#btn-import-video').addEventListener('click', () => $('#file-input-video').click());
+            $('#btn-import-audio').addEventListener('click', () => $('#file-input-audio').click());
+            
             $('#file-input-video').addEventListener('change', handleVideoImport);
             $('#file-input-audio').addEventListener('change', handleAudioImport);
+            
+            // Text and overlay buttons
             $('#btn-add-text').addEventListener('click', addTextOverlay);
             $('#btn-emoji-picker').addEventListener('click', openEmojiPicker);
             $('#btn-sticker-picker').addEventListener('click', openStickerPicker);
-            $('#btn-undo').addEventListener('click', undo); $('#btn-redo').addEventListener('click', redo);
+            
+            // Edit buttons
+            $('#btn-undo').addEventListener('click', undo);
+            $('#btn-redo').addEventListener('click', redo);
             $('#btn-reset').addEventListener('click', resetProject);
             $('#btn-export').addEventListener('click', openExportModal);
+            
+            // Project save/load
             $('#btn-save-project').addEventListener('click', saveProjectToFile);
-            $('#btn-open-project').addEventListener('click', ()=>$('#file-input-project').click());
+            $('#btn-open-project').addEventListener('click', () => $('#file-input-project').click());
             $('#file-input-project').addEventListener('change', loadProjectFromFile);
-            $('#btn-toggle-left').addEventListener('click', ()=>leftPanel.classList.toggle('mobile-open'));
-            $('#btn-toggle-right').addEventListener('click', ()=>rightPanel.classList.toggle('mobile-open'));
-            document.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); togglePlay(); } });
-            previewArea.addEventListener('dragover',(e)=>{e.preventDefault(); dropOverlay.classList.add('visible');});
-            previewArea.addEventListener('dragleave',()=>dropOverlay.classList.remove('visible'));
+            
+            // Panel toggles
+            $('#btn-toggle-left').addEventListener('click', () => leftPanel.classList.toggle('mobile-open'));
+            $('#btn-toggle-right').addEventListener('click', () => rightPanel.classList.toggle('mobile-open'));
+            
+            // Left panel action buttons
+            $$('.panel-btn[data-action]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const action = e.currentTarget.dataset.action;
+                    handlePanelAction(action);
+                });
+            });
+            
+            // Filter buttons
+            $$('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const filter = e.currentTarget.dataset.filter;
+                    state.activeFilter = filter;
+                    updateFilterUI();
+                    showFilterControls(filter);
+                });
+            });
+            
+            // Transition buttons
+            $$('.panel-btn[data-transition]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const transition = e.currentTarget.dataset.transition;
+                    applyTransition(transition);
+                });
+            });
+            
+            // Right panel property controls
+            $('#text-content').addEventListener('input', updateSelectedTextOverlay);
+            $('#text-font').addEventListener('change', updateSelectedTextOverlay);
+            $('#text-size').addEventListener('input', (e) => {
+                $('#text-size-val').textContent = e.target.value + 'px';
+                updateSelectedTextOverlay();
+            });
+            $('#text-color').addEventListener('input', updateSelectedTextOverlay);
+            $('#emoji-size').addEventListener('input', updateSelectedEmojiOverlay);
+            $('#emoji-opacity').addEventListener('input', updateSelectedEmojiOverlay);
+            $('#filter-value').addEventListener('input', updateFilterValue);
+            $('#music-volume').addEventListener('input', (e) => {
+                state.musicVolume = parseInt(e.target.value) / 100;
+                if (state.musicGainNode) {
+                    state.musicGainNode.gain.value = state.musicVolume;
+                }
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && e.target === document.body) {
+                    e.preventDefault();
+                    togglePlay();
+                } else if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                } else if (e.ctrlKey && e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                } else if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    saveProjectToFile();
+                }
+            });
+            
+            // Drag and drop
+            previewArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropOverlay.classList.add('visible');
+            });
+            
+            previewArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropOverlay.classList.remove('visible');
+            });
+            
             previewArea.addEventListener('drop', handleDrop);
+            
+            // Canvas interaction for overlays
             mainCanvas.addEventListener('mousedown', onCanvasMouseDown);
             mainCanvas.addEventListener('mousemove', onCanvasMouseMove);
             mainCanvas.addEventListener('mouseup', onCanvasMouseUp);
+            mainCanvas.addEventListener('mouseleave', onCanvasMouseUp);
+            
+            // Touch events for mobile
+            mainCanvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const rect = mainCanvas.getBoundingClientRect();
+                const scaleX = mainCanvas.width / rect.width;
+                const scaleY = mainCanvas.height / rect.height;
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                onCanvasMouseDown(mouseEvent);
+            });
+            
+            mainCanvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                onCanvasMouseMove(mouseEvent);
+            });
+            
+            mainCanvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                onCanvasMouseUp();
+            });
+            
+            // Window resize
             window.addEventListener('resize', updateCanvasSize);
         }
-        function handleVideoImport(e){ const files=Array.from(e.target.files); files.forEach(f=>{ const url=URL.createObjectURL(f); state.videoSources.push({file:f,url:url,duration:0,name:f.name}); }); e.target.value=''; if(state.videoSources.length>0) loadVideoSource(0); updateTimelineUI(); }
-        function handleAudioImport(e){ const files=Array.from(e.target.files); files.forEach(f=>{ const url=URL.createObjectURL(f); state.audioSources.push({file:f,url:url,name:f.name}); }); e.target.value=''; updateTimelineUI(); }
-        function handleDrop(e){ e.preventDefault(); dropOverlay.classList.remove('visible'); const files=Array.from(e.dataTransfer.files); files.forEach(f=>{ if(f.type.startsWith('video/')){ const url=URL.createObjectURL(f); state.videoSources.push({file:f,url:url,duration:0,name:f.name}); } }); if(state.videoSources.length>0) loadVideoSource(0); updateTimelineUI(); }
-        function loadVideoSource(i){ if(i<0||i>=state.videoSources.length) return; state.currentVideoIndex=i; videoElement.src=state.videoSources[i].url; videoElement.load(); state.currentTime=0; state.trimStart=0; state.trimEnd=null; btnPlay.textContent='▶'; }
-        function togglePlay(){ if(state.videoSources.length===0) return; if(state.isPlaying){ videoElement.pause(); state.isPlaying=false; btnPlay.textContent='▶'; } else { videoElement.play().then(()=>{ state.isPlaying=true; btnPlay.textContent='⏸'; renderLoop(); }).catch(()=>{}); } }
-        function renderLoop(){ if(!state.isPlaying) return; state.currentTime=videoElement.currentTime; seekBar.value=state.currentTime*100; updateTimeDisplay(); renderFrame(state.currentTime); state.animationFrameId=requestAnimationFrame(renderLoop); }
-        function updateTimeDisplay(){ timeDisplay.textContent = formatTime(state.currentTime)+' / '+formatTime(state.trimEnd||state.duration||0); }
-        function formatTime(s){ const m=Math.floor(s/60); const sec=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); }
-        function updateCanvasSize(){ const cw=1280,ch=720; mainCanvas.style.width='100%'; mainCanvas.style.height='auto'; }
-        function renderFrame(t){ ctx.clearRect(0,0,mainCanvas.width,mainCanvas.height); if(videoElement.readyState>=2){ ctx.drawImage(videoElement,0,0,mainCanvas.width,mainCanvas.height); } state.overlays.forEach(o=>{ if(o.type==='text'){ ctx.font=`${o.fontSize||48}px Arial`; ctx.fillStyle=o.fontColor||'#000'; ctx.fillText(o.content, o.x, o.y+40); } }); }
-        function addTextOverlay(){ const ovl={type:'text',x:200,y:200,width:200,height:60,content:'Text',fontSize:48,fontColor:'#000000',id:generateId()}; state.overlays.push(ovl); state.selectedOverlayId=ovl.id; updateTimelineUI(); renderFrame(state.currentTime); }
-        function openEmojiPicker(){ modalContainer.innerHTML='<div class="modal-overlay"><div class="modal"><h3>Emoji</h3><div class="emoji-grid">😀😂❤️🔥⭐</div></div></div>'; modalContainer.querySelector('.modal-overlay').addEventListener('click',()=>modalContainer.innerHTML=''); }
-        function openStickerPicker(){ modalContainer.innerHTML='<div class="modal-overlay"><div class="modal"><h3>Stickers</h3><div class="sticker-grid">⭐❤️🎯</div></div></div>'; }
-        function openExportModal(){ if(state.videoSources.length===0) return; modalContainer.innerHTML='<div class="modal-overlay"><div class="modal"><h3>Export</h3><button class="tb-btn" id="export-start">Export</button></div></div>'; $('#export-start').addEventListener('click',()=>{ toastMsg('Export started (simulated)'); modalContainer.innerHTML=''; }); }
-        function updateTimelineUI(){ const vt=$('#tl-video-track'); vt.querySelectorAll('.tl-clip').forEach(c=>c.remove()); state.videoSources.forEach((s,i)=>{ const clip=document.createElement('span'); clip.className='tl-clip video-clip'; clip.textContent=s.name; vt.appendChild(clip); }); }
-        function saveProjectToFile(){ toastMsg('Project saved.'); }
-        function loadProjectFromFile(e){ toastMsg('Project loaded.'); e.target.value=''; }
-        function undo(){ toastMsg('Undo'); } function redo(){ toastMsg('Redo'); } function resetProject(){ toastMsg('Reset'); }
-        function onCanvasMouseDown(e){} function onCanvasMouseMove(e){} function onCanvasMouseUp(e){}
-        function toastMsg(m){ toast.textContent=m; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2000); }
-        updateCanvasSize(); renderFrame(0); updateTimeDisplay(); init();
+        
+        // Handle video import
+        function handleVideoImport(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            saveStateForUndo();
+            
+            files.forEach(f => {
+                if (f.type.startsWith('video/') || f.name.match(/\.(mp4|mov|avi|mkv|webm)$/i)) {
+                    const url = URL.createObjectURL(f);
+                    state.videoSources.push({
+                        file: f,
+                        url: url,
+                        duration: 0,
+                        name: f.name
+                    });
+                }
+            });
+            
+            e.target.value = '';
+            
+            if (state.videoSources.length > 0) {
+                loadVideoSource(state.videoSources.length - 1);
+            }
+            
+            updateTimelineUI();
+            toastMsg(`Imported ${files.length} video(s)`);
+        }
+        
+        // Handle audio import
+        function handleAudioImport(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            initAudioContext();
+            
+            files.forEach(f => {
+                if (f.type.startsWith('audio/') || f.name.match(/\.(mp3|wav|aac|m4a|ogg)$/i)) {
+                    const url = URL.createObjectURL(f);
+                    state.audioSources.push({
+                        file: f,
+                        url: url,
+                        name: f.name
+                    });
+                }
+            });
+            
+            e.target.value = '';
+            
+            // Auto-play first audio if no music is playing
+            if (state.audioSources.length > 0 && musicElement.paused) {
+                musicElement.src = state.audioSources[0].url;
+                musicElement.play().catch(() => {
+                    toastMsg('Click play to start audio');
+                });
+                $('#prop-music').style.display = 'block';
+            }
+            
+            updateTimelineUI();
+            toastMsg(`Imported ${files.length} audio(s)`);
+        }
+        
+        // Handle drop
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropOverlay.classList.remove('visible');
+            
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length === 0) return;
+            
+            saveStateForUndo();
+            
+            files.forEach(f => {
+                if (f.type.startsWith('video/')) {
+                    const url = URL.createObjectURL(f);
+                    state.videoSources.push({
+                        file: f,
+                        url: url,
+                        duration: 0,
+                        name: f.name
+                    });
+                } else if (f.type.startsWith('audio/')) {
+                    initAudioContext();
+                    const url = URL.createObjectURL(f);
+                    state.audioSources.push({
+                        file: f,
+                        url: url,
+                        name: f.name
+                    });
+                }
+            });
+            
+            if (state.videoSources.length > 0) {
+                loadVideoSource(state.videoSources.length - 1);
+            }
+            
+            if (state.audioSources.length > 0 && musicElement.paused) {
+                musicElement.src = state.audioSources[0].url;
+                musicElement.play().catch(() => {});
+                $('#prop-music').style.display = 'block';
+            }
+            
+            updateTimelineUI();
+            toastMsg(`Imported files via drag & drop`);
+        }
+        
+        // Load video source
+        function loadVideoSource(i) {
+            if (i < 0 || i >= state.videoSources.length) return;
+            
+            state.currentVideoIndex = i;
+            const source = state.videoSources[i];
+            
+            videoElement.src = source.url;
+            videoElement.load();
+            
+            state.currentTime = 0;
+            state.trimStart = 0;
+            state.trimEnd = null;
+            state.rotation = 0;
+            state.flipH = false;
+            state.flipV = false;
+            
+            seekBar.value = 0;
+            btnPlay.textContent = '▶';
+            state.isPlaying = false;
+            
+            if (state.animationFrameId) {
+                cancelAnimationFrame(state.animationFrameId);
+                state.animationFrameId = null;
+            }
+            
+            updateTimeDisplay();
+            renderFrame(0);
+            toastMsg(`Loaded: ${source.name}`);
+        }
+        
+        // Toggle play/pause
+        function togglePlay() {
+            if (state.videoSources.length === 0) {
+                toastMsg('Please import a video first');
+                return;
+            }
+            
+            if (state.isPlaying) {
+                videoElement.pause();
+                state.isPlaying = false;
+                btnPlay.textContent = '▶';
+                if (state.animationFrameId) {
+                    cancelAnimationFrame(state.animationFrameId);
+                    state.animationFrameId = null;
+                }
+            } else {
+                // If at end, restart
+                if (state.trimEnd && state.currentTime >= state.trimEnd) {
+                    videoElement.currentTime = state.trimStart;
+                }
+                
+                videoElement.play().then(() => {
+                    state.isPlaying = true;
+                    btnPlay.textContent = '⏸';
+                    
+                    // Start music if available
+                    if (state.audioSources.length > 0 && musicElement.paused) {
+                        musicElement.play().catch(() => {});
+                    }
+                    
+                    renderLoop();
+                }).catch((err) => {
+                    console.error('Play error:', err);
+                    toastMsg('Error playing video');
+                });
+            }
+        }
+        
+        // Render loop
+        function renderLoop() {
+            if (!state.isPlaying) return;
+            
+            state.currentTime = videoElement.currentTime;
+            seekBar.value = state.currentTime * 100;
+            updateTimeDisplay();
+            
+            // Check trim end
+            if (state.trimEnd && state.currentTime >= state.trimEnd) {
+                videoElement.pause();
+                state.isPlaying = false;
+                btnPlay.textContent = '▶';
+                if (state.animationFrameId) {
+                    cancelAnimationFrame(state.animationFrameId);
+                    state.animationFrameId = null;
+                }
+                return;
+            }
+            
+            renderFrame(state.currentTime);
+            state.animationFrameId = requestAnimationFrame(renderLoop);
+        }
+        
+        // Update time display
+        function updateTimeDisplay() {
+            const duration = state.trimEnd || state.duration || 0;
+            timeDisplay.textContent = formatTime(state.currentTime) + ' / ' + formatTime(duration);
+        }
+        
+        // Format time
+        function formatTime(s) {
+            if (!isFinite(s) || s < 0) s = 0;
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            const ms = Math.floor((s % 1) * 100);
+            return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0') + '.' + String(ms).padStart(2, '0');
+        }
+        
+        // Update canvas size
+        function updateCanvasSize() {
+            const container = $('#canvas-container');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            const aspectRatio = 1280 / 720;
+            let canvasWidth, canvasHeight;
+            
+            if (containerWidth / containerHeight > aspectRatio) {
+                canvasHeight = containerHeight * 0.9;
+                canvasWidth = canvasHeight * aspectRatio;
+            } else {
+                canvasWidth = containerWidth * 0.9;
+                canvasHeight = canvasWidth / aspectRatio;
+            }
+            
+            mainCanvas.style.width = canvasWidth + 'px';
+            mainCanvas.style.height = canvasHeight + 'px';
+        }
+        
+        // Render frame with all effects
+        function renderFrame(t) {
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            
+            // Save context state
+            ctx.save();
+            
+            // Apply rotation and flip
+            ctx.translate(mainCanvas.width / 2, mainCanvas.height / 2);
+            if (state.rotation !== 0) {
+                ctx.rotate((state.rotation * Math.PI) / 180);
+            }
+            if (state.flipH) {
+                ctx.scale(-1, 1);
+            }
+            if (state.flipV) {
+                ctx.scale(1, -1);
+            }
+            ctx.translate(-mainCanvas.width / 2, -mainCanvas.height / 2);
+            
+            // Draw video frame
+            if (videoElement.readyState >= 2 && state.videoSources.length > 0) {
+                ctx.drawImage(videoElement, 0, 0, mainCanvas.width, mainCanvas.height);
+            } else {
+                // Draw placeholder
+                ctx.fillStyle = '#F0F0F0';
+                ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+                ctx.fillStyle = '#999999';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Import a video to start', mainCanvas.width / 2, mainCanvas.height / 2);
+                ctx.textAlign = 'start';
+            }
+            
+            // Apply filters using canvas compositing
+            applyCanvasFilters();
+            
+            // Draw crop region if active
+            if (state.cropRegion) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(
+                    state.cropRegion.x,
+                    state.cropRegion.y,
+                    state.cropRegion.width,
+                    state.cropRegion.height
+                );
+                ctx.setLineDash([]);
+                
+                // Darken area outside crop
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, mainCanvas.width, state.cropRegion.y);
+                ctx.fillRect(0, state.cropRegion.y + state.cropRegion.height, mainCanvas.width, mainCanvas.height - state.cropRegion.y - state.cropRegion.height);
+                ctx.fillRect(0, state.cropRegion.y, state.cropRegion.x, state.cropRegion.height);
+                ctx.fillRect(state.cropRegion.x + state.cropRegion.width, state.cropRegion.y, mainCanvas.width - state.cropRegion.x - state.cropRegion.width, state.cropRegion.height);
+            }
+            
+            // Draw overlays
+            state.overlays.forEach(o => {
+                ctx.save();
+                
+                // Set opacity for emoji overlays
+                if (o.type === 'emoji' || o.type === 'sticker') {
+                    ctx.globalAlpha = (o.opacity || 100) / 100;
+                }
+                
+                if (o.type === 'text') {
+                    const fontFamily = o.fontFamily || 'Arial';
+                    const fontSize = o.fontSize || 48;
+                    const fontColor = o.fontColor || '#000000';
+                    
+                    ctx.font = `${fontSize}px ${fontFamily}`;
+                    ctx.fillStyle = fontColor;
+                    ctx.textBaseline = 'top';
+                    
+                    // Handle multi-line text
+                    const lines = (o.content || 'Text').split('\n');
+                    lines.forEach((line, index) => {
+                        ctx.fillText(line, o.x, o.y + (index * fontSize * 1.2));
+                    });
+                    
+                    // Draw selection indicator
+                    if (o.id === state.selectedOverlayId) {
+                        const metrics = ctx.measureText(o.content || 'Text');
+                        const textHeight = fontSize * lines.length * 1.2;
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([3, 3]);
+                        ctx.strokeRect(o.x - 5, o.y - 5, metrics.width + 10, textHeight + 10);
+                        ctx.setLineDash([]);
+                    }
+                } else if (o.type === 'emoji' || o.type === 'sticker') {
+                    const size = o.size || 60;
+                    ctx.font = `${size}px Arial`;
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(o.content, o.x, o.y);
+                    
+                    // Draw selection indicator
+                    if (o.id === state.selectedOverlayId) {
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([3, 3]);
+                        ctx.strokeRect(o.x - 5, o.y - 5, size + 10, size + 10);
+                        ctx.setLineDash([]);
+                    }
+                }
+                
+                ctx.restore();
+            });
+            
+            // Apply transition effect
+            if (state.transition && state.transitionProgress > 0) {
+                applyTransitionEffect();
+            }
+            
+            ctx.restore();
+        }
+        
+        // Apply canvas filters
+        function applyCanvasFilters() {
+            if (state.filters.brightness !== 100 ||
+                state.filters.contrast !== 100 ||
+                state.filters.saturation !== 100 ||
+                state.filters.blur > 0 ||
+                state.filters.grayscale > 0 ||
+                state.filters.invert > 0 ||
+                state.filters.sepia > 0) {
+                
+                const imageData = ctx.getImageData(0, 0, mainCanvas.width, mainCanvas.height);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i];
+                    let g = data[i + 1];
+                    let b = data[i + 2];
+                    
+                    // Brightness
+                    const brightnessFactor = state.filters.brightness / 100;
+                    r *= brightnessFactor;
+                    g *= brightnessFactor;
+                    b *= brightnessFactor;
+                    
+                    // Contrast
+                    const contrastFactor = (state.filters.contrast - 100) / 100 + 1;
+                    r = ((r / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                    g = ((g / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                    b = ((b / 255 - 0.5) * contrastFactor + 0.5) * 255;
+                    
+                    // Saturation
+                    const saturationFactor = state.filters.saturation / 100;
+                    const gray = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+                    r = gray + saturationFactor * (r - gray);
+                    g = gray + saturationFactor * (g - gray);
+                    b = gray + saturationFactor * (b - gray);
+                    
+                    // Grayscale
+                    if (state.filters.grayscale > 0) {
+                        const gs = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+                        r = r + (gs - r) * (state.filters.grayscale / 100);
+                        g = g + (gs - g) * (state.filters.grayscale / 100);
+                        b = b + (gs - b) * (state.filters.grayscale / 100);
+                    }
+                    
+                    // Sepia
+                    if (state.filters.sepia > 0) {
+                        const sr = (r * 0.393) + (g * 0.769) + (b * 0.189);
+                        const sg = (r * 0.349) + (g * 0.686) + (b * 0.168);
+                        const sb = (r * 0.272) + (g * 0.534) + (b * 0.131);
+                        r = r + (sr - r) * (state.filters.sepia / 100);
+                        g = g + (sg - g) * (state.filters.sepia / 100);
+                        b = b + (sb - b) * (state.filters.sepia / 100);
+                    }
+                    
+                    // Invert
+                    if (state.filters.invert > 0) {
+                        r = r + (255 - r - r) * (state.filters.invert / 100);
+                        g = g + (255 - g - g) * (state.filters.invert / 100);
+                        b = b + (255 - b - b) * (state.filters.invert / 100);
+                    }
+                    
+                    // Clamp values
+                    data[i] = Math.max(0, Math.min(255, r));
+                    data[i + 1] = Math.max(0, Math.min(255, g));
+                    data[i + 2] = Math.max(0, Math.min(255, b));
+                }
+                
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Vignette effect
+                if (state.filters.vignette > 0) {
+                    const gradient = ctx.createRadialGradient(
+                        mainCanvas.width / 2, mainCanvas.height / 2, mainCanvas.width * 0.3,
+                        mainCanvas.width / 2, mainCanvas.height / 2, mainCanvas.width * 0.7
+                    );
+                    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+                    gradient.addColorStop(1, `rgba(0,0,0,${state.filters.vignette / 100})`);
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+                }
+            }
+        }
+        
+        // Apply transition effect
+        function applyTransitionEffect() {
+            const progress = state.transitionProgress;
+            
+            switch (state.transition) {
+                case 'fade':
+                    ctx.fillStyle = `rgba(0, 0, 0, ${progress})`;
+                    ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+                    break;
+                case 'zoom':
+                    // Implemented in export
+                    break;
+                case 'slide':
+                    ctx.fillStyle = `rgba(0, 0, 0, 0.5)`;
+                    const offset = mainCanvas.width * progress;
+                    ctx.fillRect(offset, 0, mainCanvas.width - offset, mainCanvas.height);
+                    break;
+            }
+        }
+        
+        // Add text overlay
+        function addTextOverlay() {
+            saveStateForUndo();
+            
+            const ovl = {
+                type: 'text',
+                x: mainCanvas.width / 2 - 100,
+                y: mainCanvas.height / 2 - 50,
+                width: 200,
+                height: 60,
+                content: 'Text',
+                fontSize: 48,
+                fontFamily: 'Arial',
+                fontColor: '#000000',
+                id: generateId()
+            };
+            
+            state.overlays.push(ovl);
+            state.selectedOverlayId = ovl.id;
+            
+            // Show text properties panel
+            $('#prop-text').style.display = 'block';
+            $('#prop-emoji').style.display = 'none';
+            $('#text-content').value = ovl.content;
+            $('#text-font').value = ovl.fontFamily;
+            $('#text-size').value = ovl.fontSize;
+            $('#text-color').value = ovl.fontColor;
+            $('#text-size-val').textContent = ovl.fontSize + 'px';
+            
+            updateTimelineUI();
+            renderFrame(state.currentTime);
+            toastMsg('Text added - drag to reposition');
+        }
+        
+        // Update selected text overlay
+        function updateSelectedTextOverlay() {
+            const selected = state.overlays.find(o => o.id === state.selectedOverlayId && o.type === 'text');
+            if (!selected) return;
+            
+            saveStateForUndo();
+            
+            selected.content = $('#text-content').value;
+            selected.fontFamily = $('#text-font').value;
+            selected.fontSize = parseInt($('#text-size').value);
+            selected.fontColor = $('#text-color').value;
+            $('#text-size-val').textContent = selected.fontSize + 'px';
+            
+            updateTimelineUI();
+            renderFrame(state.currentTime);
+        }
+        
+        // Update selected emoji overlay
+        function updateSelectedEmojiOverlay() {
+            const selected = state.overlays.find(o => o.id === state.selectedOverlayId && (o.type === 'emoji' || o.type === 'sticker'));
+            if (!selected) return;
+            
+            saveStateForUndo();
+            
+            selected.size = parseInt($('#emoji-size').value);
+            selected.opacity = parseInt($('#emoji-opacity').value);
+            
+            renderFrame(state.currentTime);
+        }
+        
+        // Open emoji picker
+        function openEmojiPicker() {
+            let gridHTML = '';
+            emojiList.forEach(emoji => {
+                gridHTML += `<button>${emoji}</button>`;
+            });
+            
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" id="emoji-modal-overlay">
+                    <div class="modal">
+                        <h3>Choose Emoji</h3>
+                        <div class="emoji-grid">${gridHTML}</div>
+                        <div class="btn-row">
+                            <button class="tb-btn" id="close-emoji-modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add click handlers to emoji buttons
+            const emojiButtons = modalContainer.querySelectorAll('.emoji-grid button');
+            emojiButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const emoji = btn.textContent;
+                    addEmojiOverlay(emoji);
+                    modalContainer.innerHTML = '';
+                });
+            });
+            
+            // Close button
+            $('#close-emoji-modal')?.addEventListener('click', () => {
+                modalContainer.innerHTML = '';
+            });
+            
+            // Close on overlay click
+            $('#emoji-modal-overlay')?.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    modalContainer.innerHTML = '';
+                }
+            });
+        }
+        
+        // Add emoji overlay
+        function addEmojiOverlay(emoji) {
+            saveStateForUndo();
+            
+            const ovl = {
+                type: 'emoji',
+                x: mainCanvas.width / 2 - 30,
+                y: mainCanvas.height / 2 - 30,
+                content: emoji,
+                size: 60,
+                opacity: 100,
+                id: generateId()
+            };
+            
+            state.overlays.push(ovl);
+            state.selectedOverlayId = ovl.id;
+            
+            // Show emoji properties panel
+            $('#prop-emoji').style.display = 'block';
+            $('#prop-text').style.display = 'none';
+            $('#emoji-size').value = ovl.size;
+            $('#emoji-opacity').value = ovl.opacity;
+            
+            updateTimelineUI();
+            renderFrame(state.currentTime);
+            toastMsg('Emoji added - drag to reposition');
+        }
+        
+        // Open sticker picker
+        function openStickerPicker() {
+            let gridHTML = '';
+            stickerList.forEach(sticker => {
+                gridHTML += `<button>${sticker}</button>`;
+            });
+            
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" id="sticker-modal-overlay">
+                    <div class="modal">
+                        <h3>Choose Sticker</h3>
+                        <div class="sticker-grid">${gridHTML}</div>
+                        <div class="btn-row">
+                            <button class="tb-btn" id="close-sticker-modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add click handlers to sticker buttons
+            const stickerButtons = modalContainer.querySelectorAll('.sticker-grid button');
+            stickerButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sticker = btn.textContent;
+                    addStickerOverlay(sticker);
+                    modalContainer.innerHTML = '';
+                });
+            });
+            
+            // Close button
+            $('#close-sticker-modal')?.addEventListener('click', () => {
+                modalContainer.innerHTML = '';
+            });
+            
+            // Close on overlay click
+            $('#sticker-modal-overlay')?.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    modalContainer.innerHTML = '';
+                }
+            });
+        }
+        
+        // Add sticker overlay
+        function addStickerOverlay(sticker) {
+            saveStateForUndo();
+            
+            const ovl = {
+                type: 'sticker',
+                x: mainCanvas.width / 2 - 30,
+                y: mainCanvas.height / 2 - 30,
+                content: sticker,
+                size: 60,
+                opacity: 100,
+                id: generateId()
+            };
+            
+            state.overlays.push(ovl);
+            state.selectedOverlayId = ovl.id;
+            
+            // Show emoji properties panel (reuse for stickers)
+            $('#prop-emoji').style.display = 'block';
+            $('#prop-text').style.display = 'none';
+            $('#emoji-size').value = ovl.size;
+            $('#emoji-opacity').value = ovl.opacity;
+            
+            updateTimelineUI();
+            renderFrame(state.currentTime);
+            toastMsg('Sticker added - drag to reposition');
+        }
+        
+        // Handle panel actions
+        function handlePanelAction(action) {
+            if (state.videoSources.length === 0 && action !== 'delete-media') {
+                toastMsg('Please import a video first');
+                return;
+            }
+            
+            saveStateForUndo();
+            
+            switch (action) {
+                case 'trim':
+                    openTrimModal();
+                    break;
+                case 'cut':
+                    cutVideo();
+                    break;
+                case 'crop':
+                    toggleCropMode();
+                    break;
+                case 'rotate':
+                    state.rotation = (state.rotation + 90) % 360;
+                    renderFrame(state.currentTime);
+                    toastMsg(`Rotated to ${state.rotation}°`);
+                    break;
+                case 'flip-h':
+                    state.flipH = !state.flipH;
+                    renderFrame(state.currentTime);
+                    toastMsg(`Flip horizontal: ${state.flipH ? 'ON' : 'OFF'}`);
+                    break;
+                case 'flip-v':
+                    state.flipV = !state.flipV;
+                    renderFrame(state.currentTime);
+                    toastMsg(`Flip vertical: ${state.flipV ? 'ON' : 'OFF'}`);
+                    break;
+                case 'resize':
+                    openResizeModal();
+                    break;
+                case 'delete-media':
+                    deleteSelectedMedia();
+                    break;
+            }
+        }
+        
+        // Open trim modal
+        function openTrimModal() {
+            const duration = state.duration || 0;
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" id="trim-modal-overlay">
+                    <div class="modal">
+                        <h3>Trim Video</h3>
+                        <div class="prop-group">
+                            <label>Start Time (seconds)</label>
+                            <input type="number" id="trim-start-input" min="0" max="${duration}" step="0.1" value="${state.trimStart}">
+                        </div>
+                        <div class="prop-group">
+                            <label>End Time (seconds)</label>
+                            <input type="number" id="trim-end-input" min="0" max="${duration}" step="0.1" value="${state.trimEnd || duration}">
+                        </div>
+                        <div class="btn-row">
+                            <button class="tb-btn" id="apply-trim">Apply</button>
+                            <button class="tb-btn" id="reset-trim">Reset</button>
+                            <button class="tb-btn" id="close-trim-modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('#apply-trim')?.addEventListener('click', () => {
+                const start = parseFloat($('#trim-start-input').value);
+                const end = parseFloat($('#trim-end-input').value);
+                
+                if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > duration) {
+                    toastMsg('Invalid trim values');
+                    return;
+                }
+                
+                saveStateForUndo();
+                state.trimStart = start;
+                state.trimEnd = end;
+                videoElement.currentTime = start;
+                state.currentTime = start;
+                updateTimeDisplay();
+                renderFrame(start);
+                modalContainer.innerHTML = '';
+                toastMsg(`Trimmed: ${formatTime(start)} - ${formatTime(end)}`);
+            });
+            
+            $('#reset-trim')?.addEventListener('click', () => {
+                saveStateForUndo();
+                state.trimStart = 0;
+                state.trimEnd = duration;
+                videoElement.currentTime = 0;
+                state.currentTime = 0;
+                updateTimeDisplay();
+                renderFrame(0);
+                modalContainer.innerHTML = '';
+                toastMsg('Trim reset');
+            });
+            
+            $('#close-trim-modal')?.addEventListener('click', () => {
+                modalContainer.innerHTML = '';
+            });
+            
+            $('#trim-modal-overlay')?.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    modalContainer.innerHTML = '';
+                }
+            });
+        }
+        
+        // Cut video (split at current time)
+        function cutVideo() {
+            if (state.currentTime <= state.trimStart || (state.trimEnd && state.currentTime >= state.trimEnd)) {
+                toastMsg('Cannot cut at current position');
+                return;
+            }
+            
+            toastMsg('Video cut at ' + formatTime(state.currentTime));
+            // In a real app, this would split the video into segments
+        }
+        
+        // Toggle crop mode
+        function toggleCropMode() {
+            if (state.cropRegion) {
+                state.cropRegion = null;
+                toastMsg('Crop mode disabled');
+            } else {
+                state.cropRegion = {
+                    x: mainCanvas.width * 0.25,
+                    y: mainCanvas.height * 0.25,
+                    width: mainCanvas.width * 0.5,
+                    height: mainCanvas.height * 0.5
+                };
+                toastMsg('Crop mode enabled - drag corners to adjust');
+            }
+            renderFrame(state.currentTime);
+        }
+        
+        // Open resize modal
+        function openResizeModal() {
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" id="resize-modal-overlay">
+                    <div class="modal">
+                        <h3>Resize Canvas</h3>
+                        <div class="prop-group">
+                            <label>Width</label>
+                            <input type="number" id="resize-width" value="${mainCanvas.width}" min="320" max="3840">
+                        </div>
+                        <div class="prop-group">
+                            <label>Height</label>
+                            <input type="number" id="resize-height" value="${mainCanvas.height}" min="240" max="2160">
+                        </div>
+                        <div class="btn-row">
+                            <button class="tb-btn" id="apply-resize">Apply</button>
+                            <button class="tb-btn" id="close-resize-modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('#apply-resize')?.addEventListener('click', () => {
+                const width = parseInt($('#resize-width').value);
+                const height = parseInt($('#resize-height').value);
+                
+                if (isNaN(width) || isNaN(height) || width < 320 || height < 240) {
+                    toastMsg('Invalid dimensions');
+                    return;
+                }
+                
+                mainCanvas.width = width;
+                mainCanvas.height = height;
+                updateCanvasSize();
+                renderFrame(state.currentTime);
+                modalContainer.innerHTML = '';
+                toastMsg(`Resized to ${width}x${height}`);
+            });
+            
+            $('#close-resize-modal')?.addEventListener('click', () => {
+                modalContainer.innerHTML = '';
+            });
+            
+            $('#resize-modal-overlay')?.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    modalContainer.innerHTML = '';
+                }
+            });
+        }
+        
+        // Delete selected media
+        function deleteSelectedMedia() {
+            if (state.selectedOverlayId) {
+                state.overlays = state.overlays.filter(o => o.id !== state.selectedOverlayId);
+                state.selectedOverlayId = null;
+                $('#prop-text').style.display = 'none';
+                $('#prop-emoji').style.display = 'none';
+                updateTimelineUI();
+                renderFrame(state.currentTime);
+                toastMsg('Overlay deleted');
+            } else if (state.videoSources.length > 0) {
+                if (confirm('Delete current video?')) {
+                    URL.revokeObjectURL(state.videoSources[state.currentVideoIndex].url);
+                    state.videoSources.splice(state.currentVideoIndex, 1);
+                    if (state.videoSources.length > 0) {
+                        loadVideoSource(0);
+                    } else {
+                        videoElement.src = '';
+                        videoElement.pause();
+                        state.isPlaying = false;
+                        btnPlay.textContent = '▶';
+                        seekBar.value = 0;
+                        ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                    }
+                    updateTimelineUI();
+                    renderFrame(0);
+                    toastMsg('Video deleted');
+                }
+            } else {
+                toastMsg('Nothing to delete');
+            }
+        }
+        
+        // Update filter UI
+        function updateFilterUI() {
+            const filterBtns = $$('.filter-btn');
+            filterBtns.forEach(btn => {
+                const filter = btn.dataset.filter;
+                if (filter === state.activeFilter) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            showFilterControls(state.activeFilter);
+        }
+        
+        // Show filter controls
+        function showFilterControls(filter) {
+            const filterGroup = $('#prop-filter');
+            const filterLabel = $('#filter-label');
+            const filterValue = $('#filter-value');
+            const filterDisplay = $('#filter-value-display');
+            
+            filterGroup.style.display = 'block';
+            
+            switch (filter) {
+                case 'brightness':
+                    filterLabel.textContent = 'Brightness';
+                    filterValue.min = 0;
+                    filterValue.max = 200;
+                    filterValue.value = state.filters.brightness;
+                    filterDisplay.textContent = state.filters.brightness;
+                    break;
+                case 'contrast':
+                    filterLabel.textContent = 'Contrast';
+                    filterValue.min = 0;
+                    filterValue.max = 200;
+                    filterValue.value = state.filters.contrast;
+                    filterDisplay.textContent = state.filters.contrast;
+                    break;
+                case 'saturation':
+                    filterLabel.textContent = 'Saturation';
+                    filterValue.min = 0;
+                    filterValue.max = 200;
+                    filterValue.value = state.filters.saturation;
+                    filterDisplay.textContent = state.filters.saturation;
+                    break;
+                case 'blur':
+                    filterLabel.textContent = 'Blur';
+                    filterValue.min = 0;
+                    filterValue.max = 20;
+                    filterValue.value = state.filters.blur;
+                    filterDisplay.textContent = state.filters.blur;
+                    break;
+                case 'vignette':
+                    filterLabel.textContent = 'Vignette';
+                    filterValue.min = 0;
+                    filterValue.max = 100;
+                    filterValue.value = state.filters.vignette;
+                    filterDisplay.textContent = state.filters.vignette;
+                    break;
+            }
+            
+            // Update preset buttons
+            updateFilterPresets(filter);
+        }
+        
+        // Update filter presets
+        function updateFilterPresets(filter) {
+            const presetsContainer = $('#filter-presets');
+            let presets = [];
+            
+            switch (filter) {
+                case 'brightness':
+                    presets = [
+                        { name: 'Dark', value: 50 },
+                        { name: 'Normal', value: 100 },
+                        { name: 'Bright', value: 150 }
+                    ];
+                    break;
+                case 'contrast':
+                    presets = [
+                        { name: 'Low', value: 50 },
+                        { name: 'Normal', value: 100 },
+                        { name: 'High', value: 150 }
+                    ];
+                    break;
+                case 'saturation':
+                    presets = [
+                        { name: 'B&W', value: 0 },
+                        { name: 'Normal', value: 100 },
+                        { name: 'Vivid', value: 150 }
+                    ];
+                    break;
+                case 'blur':
+                    presets = [
+                        { name: 'None', value: 0 },
+                        { name: 'Light', value: 5 },
+                        { name: 'Strong', value: 15 }
+                    ];
+                    break;
+                case 'vignette':
+                    presets = [
+                        { name: 'None', value: 0 },
+                        { name: 'Light', value: 30 },
+                        { name: 'Dark', value: 70 }
+                    ];
+                    break;
+            }
+            
+            presetsContainer.innerHTML = '';
+            presets.forEach(preset => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-preset-btn';
+                btn.textContent = preset.name;
+                btn.addEventListener('click', () => {
+                    saveStateForUndo();
+                    state.filters[state.activeFilter] = preset.value;
+                    $('#filter-value').value = preset.value;
+                    $('#filter-value-display').textContent = preset.value;
+                    renderFrame(state.currentTime);
+                });
+                presetsContainer.appendChild(btn);
+            });
+        }
+        
+        // Update filter value
+        function updateFilterValue() {
+            const value = parseInt($('#filter-value').value);
+            $('#filter-value-display').textContent = value;
+            
+            saveStateForUndo();
+            state.filters[state.activeFilter] = value;
+            renderFrame(state.currentTime);
+        }
+        
+        // Apply transition
+        function applyTransition(transition) {
+            state.transition = transition;
+            state.transitionProgress = 0;
+            
+            toastMsg(`Transition: ${transition} applied`);
+            
+            // Animate transition
+            let startTime = null;
+            const duration = 1000; // 1 second
+            
+            function animateTransition(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                state.transitionProgress = Math.min(elapsed / duration, 1);
+                
+                renderFrame(state.currentTime);
+                
+                if (state.transitionProgress < 1) {
+                    requestAnimationFrame(animateTransition);
+                } else {
+                    state.transition = null;
+                    state.transitionProgress = 0;
+                    renderFrame(state.currentTime);
+                }
+            }
+            
+            requestAnimationFrame(animateTransition);
+        }
+        
+        // Canvas mouse handlers for overlay dragging
+        function onCanvasMouseDown(e) {
+            const rect = mainCanvas.getBoundingClientRect();
+            const scaleX = mainCanvas.width / rect.width;
+            const scaleY = mainCanvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            // Check if clicking on an overlay
+            let clickedOverlay = null;
+            for (let i = state.overlays.length - 1; i >= 0; i--) {
+                const o = state.overlays[i];
+                let overlayWidth, overlayHeight;
+                
+                if (o.type === 'text') {
+                    ctx.font = `${o.fontSize || 48}px ${o.fontFamily || 'Arial'}`;
+                    const metrics = ctx.measureText(o.content || 'Text');
+                    overlayWidth = metrics.width;
+                    overlayHeight = (o.fontSize || 48) * 1.2;
+                } else {
+                    overlayWidth = o.size || 60;
+                    overlayHeight = o.size || 60;
+                }
+                
+                if (x >= o.x && x <= o.x + overlayWidth &&
+                    y >= o.y && y <= o.y + overlayHeight) {
+                    clickedOverlay = o;
+                    break;
+                }
+            }
+            
+            if (clickedOverlay) {
+                saveStateForUndo();
+                state.selectedOverlayId = clickedOverlay.id;
+                state.isDraggingOverlay = true;
+                state.dragStartX = x - clickedOverlay.x;
+                state.dragStartY = y - clickedOverlay.y;
+                
+                // Show appropriate properties panel
+                if (clickedOverlay.type === 'text') {
+                    $('#prop-text').style.display = 'block';
+                    $('#prop-emoji').style.display = 'none';
+                    $('#text-content').value = clickedOverlay.content;
+                    $('#text-font').value = clickedOverlay.fontFamily || 'Arial';
+                    $('#text-size').value = clickedOverlay.fontSize || 48;
+                    $('#text-color').value = clickedOverlay.fontColor || '#000000';
+                    $('#text-size-val').textContent = (clickedOverlay.fontSize || 48) + 'px';
+                } else {
+                    $('#prop-emoji').style.display = 'block';
+                    $('#prop-text').style.display = 'none';
+                    $('#emoji-size').value = clickedOverlay.size || 60;
+                    $('#emoji-opacity').value = clickedOverlay.opacity || 100;
+                }
+            } else {
+                state.selectedOverlayId = null;
+                $('#prop-text').style.display = 'none';
+                $('#prop-emoji').style.display = 'none';
+            }
+            
+            renderFrame(state.currentTime);
+        }
+        
+        function onCanvasMouseMove(e) {
+            if (!state.isDraggingOverlay) return;
+            
+            const rect = mainCanvas.getBoundingClientRect();
+            const scaleX = mainCanvas.width / rect.width;
+            const scaleY = mainCanvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            const selected = state.overlays.find(o => o.id === state.selectedOverlayId);
+            if (selected) {
+                selected.x = x - state.dragStartX;
+                selected.y = y - state.dragStartY;
+                renderFrame(state.currentTime);
+            }
+        }
+        
+        function onCanvasMouseUp() {
+            state.isDraggingOverlay = false;
+        }
+        
+        // Open export modal
+        function openExportModal() {
+            if (state.videoSources.length === 0) {
+                toastMsg('Please import a video before exporting');
+                return;
+            }
+            
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" id="export-modal-overlay">
+                    <div class="modal">
+                        <h3>Export Video</h3>
+                        <div class="prop-group">
+                            <label>Format</label>
+                            <select id="export-format">
+                                <option value="webm">WebM</option>
+                                <option value="mp4">MP4</option>
+                            </select>
+                        </div>
+                        <div class="prop-group">
+                            <label>Quality</label>
+                            <select id="export-quality">
+                                <option value="1">High</option>
+                                <option value="0.7" selected>Medium</option>
+                                <option value="0.4">Low</option>
+                            </select>
+                        </div>
+                        <div class="btn-row">
+                            <button class="tb-btn accent" id="export-start">Export</button>
+                            <button class="tb-btn" id="close-export-modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('#export-start')?.addEventListener('click', () => {
+                const format = $('#export-format').value;
+                const quality = parseFloat($('#export-quality').value);
+                exportVideo(format, quality);
+                modalContainer.innerHTML = '';
+            });
+            
+            $('#close-export-modal')?.addEventListener('click', () => {
+                modalContainer.innerHTML = '';
+            });
+            
+            $('#export-modal-overlay')?.addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    modalContainer.innerHTML = '';
+                }
+            });
+        }
+        
+        // Export video
+        function exportVideo(format, quality) {
+            toastMsg('Starting export...');
+            
+            // Create a MediaRecorder to capture the canvas
+            const stream = mainCanvas.captureStream(30); // 30 FPS
+            const mimeType = format === 'mp4' ? 'video/mp4' : 'video/webm';
+            
+            let mediaRecorder;
+            try {
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: mimeType,
+                    videoBitsPerSecond: 5000000 * quality
+                });
+            } catch (e) {
+                // Fallback
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'video/webm',
+                    videoBitsPerSecond: 5000000 * quality
+                });
+            }
+            
+            const chunks = [];
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    chunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+                const url = URL.createObjectURL(blob);
+                
+                // Download the file
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `video-${Date.now()}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                toastMsg('Export complete! Downloading...');
+            };
+            
+            // Start recording
+            mediaRecorder.start();
+            
+            // Play the video from trim start to trim end
+            videoElement.currentTime = state.trimStart;
+            state.isPlaying = false;
+            btnPlay.textContent = '▶';
+            
+            if (state.animationFrameId) {
+                cancelAnimationFrame(state.animationFrameId);
+                state.animationFrameId = null;
+            }
+            
+            // Render frames during export
+            const exportStartTime = state.trimStart;
+            const exportEndTime = state.trimEnd || state.duration;
+            const exportDuration = exportEndTime - exportStartTime;
+            const fps = 30;
+            const frameInterval = 1000 / fps;
+            let exportCurrentTime = exportStartTime;
+            
+            videoElement.currentTime = exportCurrentTime;
+            
+            function renderExportFrame() {
+                if (exportCurrentTime >= exportEndTime) {
+                    mediaRecorder.stop();
+                    videoElement.pause();
+                    return;
+                }
+                
+                videoElement.currentTime = exportCurrentTime;
+                
+                // Wait for seek to complete
+                videoElement.addEventListener('seeked', function onSeeked() {
+                    videoElement.removeEventListener('seeked', onSeeked);
+                    renderFrame(exportCurrentTime);
+                    exportCurrentTime += 1 / fps;
+                    
+                    if (exportCurrentTime < exportEndTime) {
+                        setTimeout(renderExportFrame, frameInterval);
+                    } else {
+                        mediaRecorder.stop();
+                        videoElement.pause();
+                    }
+                });
+            }
+            
+            // Start export after a short delay to ensure recording has started
+            setTimeout(renderExportFrame, 500);
+        }
+        
+        // Save project to file
+        function saveProjectToFile() {
+            const projectData = {
+                version: '1.0',
+                timestamp: Date.now(),
+                videoSources: state.videoSources.map(s => ({
+                    name: s.name,
+                    url: s.url
+                })),
+                audioSources: state.audioSources.map(s => ({
+                    name: s.name,
+                    url: s.url
+                })),
+                currentVideoIndex: state.currentVideoIndex,
+                overlays: state.overlays,
+                filters: state.filters,
+                trimStart: state.trimStart,
+                trimEnd: state.trimEnd,
+                rotation: state.rotation,
+                flipH: state.flipH,
+                flipV: state.flipV,
+                speed: state.speed,
+                musicVolume: state.musicVolume
+            };
+            
+            const json = JSON.stringify(projectData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `video-project-${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            toastMsg('Project saved successfully!');
+        }
+        
+        // Load project from file
+        function loadProjectFromFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const projectData = JSON.parse(event.target.result);
+                    
+                    // Validate project data
+                    if (!projectData.version) {
+                        throw new Error('Invalid project file');
+                    }
+                    
+                    saveStateForUndo();
+                    
+                    // Restore state
+                    state.overlays = projectData.overlays || [];
+                    state.filters = projectData.filters || state.filters;
+                    state.trimStart = projectData.trimStart || 0;
+                    state.trimEnd = projectData.trimEnd || null;
+                    state.rotation = projectData.rotation || 0;
+                    state.flipH = projectData.flipH || false;
+                    state.flipV = projectData.flipV || false;
+                    state.speed = projectData.speed || 1;
+                    state.musicVolume = projectData.musicVolume || 0.5;
+                    
+                    // Restore video sources
+                    if (projectData.videoSources && projectData.videoSources.length > 0) {
+                        state.videoSources = projectData.videoSources.map(s => ({
+                            file: null,
+                            url: s.url,
+                            duration: 0,
+                            name: s.name
+                        }));
+                        state.currentVideoIndex = projectData.currentVideoIndex || 0;
+                        loadVideoSource(state.currentVideoIndex);
+                    }
+                    
+                    // Restore audio sources
+                    if (projectData.audioSources && projectData.audioSources.length > 0) {
+                        initAudioContext();
+                        state.audioSources = projectData.audioSources.map(s => ({
+                            file: null,
+                            url: s.url,
+                            name: s.name
+                        }));
+                        musicElement.src = state.audioSources[0].url;
+                        $('#prop-music').style.display = 'block';
+                    }
+                    
+                    videoElement.playbackRate = state.speed;
+                    speedSelect.value = state.speed;
+                    
+                    if (state.musicGainNode) {
+                        state.musicGainNode.gain.value = state.musicVolume;
+                        $('#music-volume').value = state.musicVolume * 100;
+                    }
+                    
+                    updateTimelineUI();
+                    updateFilterUI();
+                    renderFrame(state.currentTime);
+                    toastMsg('Project loaded successfully!');
+                } catch (error) {
+                    console.error('Error loading project:', error);
+                    toastMsg('Error loading project file');
+                }
+            };
+            
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+        
+        // Update timeline UI
+        function updateTimelineUI() {
+            // Video track
+            const videoTrack = $('#tl-video-track');
+            videoTrack.querySelectorAll('.tl-clip').forEach(c => c.remove());
+            state.videoSources.forEach((s, i) => {
+                const clip = document.createElement('span');
+                clip.className = 'tl-clip video-clip';
+                clip.textContent = s.name;
+                clip.title = s.name;
+                clip.addEventListener('click', () => {
+                    loadVideoSource(i);
+                });
+                
+                const removeBtn = document.createElement('span');
+                removeBtn.className = 'clip-remove';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    saveStateForUndo();
+                    URL.revokeObjectURL(s.url);
+                    state.videoSources.splice(i, 1);
+                    if (state.videoSources.length > 0) {
+                        loadVideoSource(0);
+                    } else {
+                        videoElement.src = '';
+                        videoElement.pause();
+                        state.isPlaying = false;
+                        btnPlay.textContent = '▶';
+                        seekBar.value = 0;
+                    }
+                    updateTimelineUI();
+                    renderFrame(0);
+                });
+                
+                clip.appendChild(removeBtn);
+                videoTrack.appendChild(clip);
+            });
+            
+            // Audio track
+            const audioTrack = $('#tl-audio-track');
+            audioTrack.querySelectorAll('.tl-clip').forEach(c => c.remove());
+            state.audioSources.forEach((s, i) => {
+                const clip = document.createElement('span');
+                clip.className = 'tl-clip audio-clip';
+                clip.textContent = s.name;
+                clip.title = s.name;
+                clip.addEventListener('click', () => {
+                    initAudioContext();
+                    musicElement.src = s.url;
+                    musicElement.play().catch(() => {});
+                    $('#prop-music').style.display = 'block';
+                });
+                
+                const removeBtn = document.createElement('span');
+                removeBtn.className = 'clip-remove';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    URL.revokeObjectURL(s.url);
+                    state.audioSources.splice(i, 1);
+                    if (state.audioSources.length === 0) {
+                        musicElement.pause();
+                        musicElement.src = '';
+                        $('#prop-music').style.display = 'none';
+                    }
+                    updateTimelineUI();
+                });
+                
+                clip.appendChild(removeBtn);
+                audioTrack.appendChild(clip);
+            });
+            
+            // Text/Overlay track
+            const textTrack = $('#tl-text-track');
+            textTrack.querySelectorAll('.tl-clip').forEach(c => c.remove());
+            state.overlays.forEach((o, i) => {
+                const clip = document.createElement('span');
+                clip.className = 'tl-clip text-clip';
+                if (o.type === 'emoji' || o.type === 'sticker') {
+                    clip.classList.add('emoji-clip');
+                }
+                clip.textContent = o.content || 'Text';
+                clip.title = `${o.type}: ${o.content || 'Text'}`;
+                clip.addEventListener('click', () => {
+                    state.selectedOverlayId = o.id;
+                    if (o.type === 'text') {
+                        $('#prop-text').style.display = 'block';
+                        $('#prop-emoji').style.display = 'none';
+                        $('#text-content').value = o.content;
+                        $('#text-font').value = o.fontFamily || 'Arial';
+                        $('#text-size').value = o.fontSize || 48;
+                        $('#text-color').value = o.fontColor || '#000000';
+                        $('#text-size-val').textContent = (o.fontSize || 48) + 'px';
+                    } else {
+                        $('#prop-emoji').style.display = 'block';
+                        $('#prop-text').style.display = 'none';
+                        $('#emoji-size').value = o.size || 60;
+                        $('#emoji-opacity').value = o.opacity || 100;
+                    }
+                    renderFrame(state.currentTime);
+                });
+                
+                const removeBtn = document.createElement('span');
+                removeBtn.className = 'clip-remove';
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    saveStateForUndo();
+                    state.overlays = state.overlays.filter(ov => ov.id !== o.id);
+                    if (state.selectedOverlayId === o.id) {
+                        state.selectedOverlayId = null;
+                        $('#prop-text').style.display = 'none';
+                        $('#prop-emoji').style.display = 'none';
+                    }
+                    updateTimelineUI();
+                    renderFrame(state.currentTime);
+                });
+                
+                clip.appendChild(removeBtn);
+                textTrack.appendChild(clip);
+            });
+        }
+        
+        // Toast message
+        function toastMsg(m) {
+            toast.textContent = m;
+            toast.classList.add('show');
+            clearTimeout(toast._timeout);
+            toast._timeout = setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+        
+        // Initialize the application
+        updateCanvasSize();
+        renderFrame(0);
+        updateTimeDisplay();
+        updateFilterUI();
+        init();
     })();
 </script>
 </body>
