@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Video Editor Studio Maker</title>
+    <style>
+        :root {
+            --bg: #FFFFFF;
+            --surface: #F5F5F5;
+            --surface2: #EEEEEE;
+            --glass: rgba(255, 255, 255, 0.9);
+            --glass2: rgba(245, 245, 245, 0.9);
+            --border: #DDDDDD;
+            --border2: #CCCCCC;
+            --text: #000000;
+            --text2: #444444;
+            --accent: #000000;
+            --accent2: #222222;
+            --accent3: #555555;
+            --danger: #000000;
+            --success: #000000;
+            --warning: #000000;
+            --radius: 16px;
+            --radius-sm: 12px;
+            --radius-xs: 8px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+            --transition: 0.3s cubic-bezier(0.2, 0.0, 0, 1.0);
+            --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            --glow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+            --focus-ring: 0 0 0 3px rgba(0, 0, 0, 0.2);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            letter-spacing: -0.01em;
+        }
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            background: #FFFFFF;
+        }
+        #topbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            min-height: 56px;
+            background: #FFFFFF;
+        }
+        #topbar .logo {
+            font-weight: 600;
+            font-size: 1.1rem;
+            letter-spacing: -0.3px;
+            color: #000000;
+            margin-right: 12px;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tb-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: var(--radius-xs);
+            border: 1px solid var(--border);
+            background: #FFFFFF;
+            color: #000000;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: var(--transition);
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            font-family: var(--font);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            letter-spacing: -0.01em;
+        }
+        .tb-btn:hover {
+            background: #000000;
+            border-color: #000000;
+            color: #FFFFFF;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+        .tb-btn:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+        .tb-btn.accent {
+            background: #000000;
+            border-color: #000000;
+            color: #FFFFFF;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .tb-btn.accent:hover {
+            background: #222222;
+            border-color: #222222;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        .tb-btn.icon-only {
+            padding: 8px 10px;
+            font-size: 1rem;
+            background: #FFFFFF;
+            color: #000000;
+        }
+        .tb-btn.icon-only:hover {
+            background: #000000;
+            color: #FFFFFF;
+        }
+        .tb-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            border-radius: 1px;
+            margin: 0 8px;
+        }
+        #main-area {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: #FAFAFA;
+        }
+        #left-panel {
+            width: 240px;
+            flex-shrink: 0;
+            background: #FFFFFF;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 10px;
+            gap: 6px;
+            z-index: 50;
+            transition: transform 0.3s ease;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.02);
+        }
+        #left-panel.collapsed {
+            transform: translateX(-100%);
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 240px;
+        }
+        .panel-section {
+            margin-bottom: 8px;
+            background: transparent;
+        }
+        .panel-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #444444;
+            padding: 8px 10px 6px;
+            font-weight: 600;
+        }
+        .panel-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: var(--radius-xs);
+            border: 1px solid transparent;
+            background: transparent;
+            color: #000000;
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: var(--transition);
+            text-align: left;
+            font-family: var(--font);
+            font-weight: 500;
+        }
+        .panel-btn:hover {
+            background: #F5F5F5;
+            border-color: #DDDDDD;
+        }
+        .panel-btn:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+        .panel-btn.active {
+            background: #000000;
+            color: #FFFFFF;
+            border-color: #000000;
+            font-weight: 600;
+        }
+        .panel-btn .ico {
+            font-size: 1.1rem;
+            width: 22px;
+            text-align: center;
+            opacity: 0.8;
+        }
+        #preview-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FFFFFF;
+            position: relative;
+            overflow: hidden;
+            min-width: 0;
+            border-left: 1px solid #EEEEEE;
+            border-right: 1px solid #EEEEEE;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #F0F0F0;
+            border-radius: 0;
+        }
+        #main-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            background: #FFFFFF;
+        }
+        #drop-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.03);
+            border: 2px dashed #000000;
+            border-radius: 16px;
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #000000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.25s;
+            z-index: 20;
+            text-align: center;
+            flex-direction: column;
+            gap: 8px;
+            backdrop-filter: blur(2px);
+        }
+        #drop-overlay.visible {
+            opacity: 1;
+        }
+        #drop-overlay .drop-icon {
+            font-size: 3rem;
+            opacity: 0.7;
+        }
+        #right-panel {
+            width: 270px;
+            flex-shrink: 0;
+            background: #FFFFFF;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 16px;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            transition: transform 0.3s;
+            box-shadow: -2px 0 12px rgba(0,0,0,0.02);
+        }
+        #right-panel.collapsed {
+            transform: translateX(100%);
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 270px;
+        }
+        .prop-group {
+            background: #F9F9F9;
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            border: 1px solid #EEEEEE;
+        }
+        .prop-group label {
+            display: block;
+            font-size: 0.7rem;
+            color: #444444;
+            margin-bottom: 5px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .prop-group input[type="range"] {
+            width: 100%;
+            accent-color: #000000;
+            margin: 6px 0 10px;
+        }
+        .prop-group input[type="color"] {
+            width: 100%;
+            height: 36px;
+            border: 1px solid #DDDDDD;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #FFFFFF;
+            padding: 3px;
+        }
+        .prop-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #DDDDDD;
+            background: #FFFFFF;
+            color: #000000;
+            font-family: var(--font);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .prop-group select:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+        .prop-group input:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+        .prop-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .prop-row input {
+            flex: 1;
+        }
+        .prop-row span {
+            font-size: 0.75rem;
+            color: #444444;
+            min-width: 35px;
+            text-align: right;
+            font-weight: 500;
+        }
+        #bottom-bar {
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            background: #FFFFFF;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid #DDDDDD;
+            z-index: 100;
+            padding: 6px 0 0 0;
+        }
+        #transport-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 24px;
+            flex-wrap: wrap;
+            background: #FAFAFA;
+            border-bottom: 1px solid #EEEEEE;
+        }
+        .ctrl-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #DDDDDD;
+            background: #FFFFFF;
+            color: #000000;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .ctrl-btn:hover {
+            background: #000000;
+            border-color: #000000;
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .ctrl-btn:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
+        .ctrl-btn.play-btn {
+            width: 44px;
+            height: 44px;
+            font-size: 1.2rem;
+            background: #000000;
+            border-color: #000000;
+            color: #FFFFFF;
+        }
+        .ctrl-btn.play-btn:hover {
+            background: #222222;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+        }
+        #seek-bar-container {
+            flex: 1;
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #seek-bar {
+            flex: 1;
+            accent-color: #000000;
+            height: 5px;
+            cursor: pointer;
+        }
+        #time-display {
+            font-size: 0.8rem;
+            color: #444444;
+            white-space: nowrap;
+            min-width: 85px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-weight: 500;
+        }
+        #volume-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #volume-slider {
+            width: 70px;
+            accent-color: #000000;
+        }
+        #timeline-area {
+            display: flex;
+            flex-direction: column;
+            padding: 10px 24px 14px;
+            gap: 6px;
+            overflow-x: auto;
+            max-height: 150px;
+            min-height: 110px;
+            background: #FFFFFF;
+        }
+        .tl-track {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            background: #FAFAFA;
+            border-radius: 8px;
+            padding: 4px 12px;
+            position: relative;
+            overflow-x: auto;
+            white-space: nowrap;
+            border: 1px solid #EEEEEE;
+        }
+        .tl-track:hover {
+            border-color: #CCCCCC;
+        }
+        .tl-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #444444;
+            min-width: 55px;
+            flex-shrink: 0;
+            font-weight: 600;
+        }
+        .tl-clip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: grab;
+            flex-shrink: 0;
+            font-weight: 500;
+            transition: var(--transition);
+            position: relative;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            border: 1px solid #CCCCCC;
+            background: #F0F0F0;
+            color: #000000;
+        }
+        .tl-clip.video-clip { background: #E0E0E0; border-color: #AAAAAA; }
+        .tl-clip.audio-clip { background: #E8E8E8; border-color: #BBBBBB; }
+        .tl-clip.text-clip { background: #D5D5D5; border-color: #999999; }
+        .tl-clip.emoji-clip { background: #E2E2E2; border-color: #AAAAAA; }
+        .tl-clip:hover { filter: brightness(0.95); background: #CCCCCC; }
+        .tl-clip .clip-remove {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 0.8rem;
+            opacity: 0.7;
+            color: #000000;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tl-clip .clip-remove:hover { opacity: 1; background: #000000; color: #FFFFFF; }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.2);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
+        .modal {
+            background: #FFFFFF;
+            border-radius: var(--radius);
+            border: 1px solid #DDDDDD;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+            color: #000000;
+            font-weight: 600;
+        }
+        .modal .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+        .emoji-grid, .sticker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .emoji-grid button, .sticker-grid button {
+            font-size: 1.4rem;
+            padding: 8px;
+            border-radius: var(--radius-xs);
+            border: 1px solid #DDDDDD;
+            background: #FFFFFF;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .emoji-grid button:hover, .sticker-grid button:hover {
+            background: #000000;
+            color: #FFFFFF;
+            border-color: #000000;
+            transform: scale(1.05);
+        }
+        .filter-preset-btn {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: 1px solid #DDDDDD;
+            background: #FFFFFF;
+            color: #000000;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: var(--transition);
+            font-family: var(--font);
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        .filter-preset-btn:hover {
+            background: #000000;
+            border-color: #000000;
+            color: #FFFFFF;
+            box-shadow: var(--glow);
+        }
+        .filter-preset-btn.active {
+            background: #000000;
+            border-color: #000000;
+            color: #FFFFFF;
+        }
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000000;
+            border: 1px solid #000000;
+            padding: 10px 24px;
+            border-radius: 30px;
+            z-index: 300;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            font-size: 0.85rem;
+            color: #FFFFFF;
+        }
+        #toast.show { opacity: 1; }
+        @media (max-width: 900px) {
+            #left-panel { position: absolute; left: 0; top: 0; bottom: 0; transform: translateX(-100%); z-index: 150; width: 250px; }
+            #left-panel.mobile-open { transform: translateX(0); }
+            #right-panel { position: absolute; right: 0; top: 0; bottom: 0; transform: translateX(100%); z-index: 150; width: 270px; }
+            #right-panel.mobile-open { transform: translateX(0); }
+            #topbar { gap: 4px; padding: 8px 12px; min-height: 48px; }
+            .tb-btn { padding: 6px 10px; font-size: 0.7rem; }
+            #transport-controls { gap: 6px; padding: 8px 12px; }
+            .ctrl-btn { width: 30px; height: 30px; font-size: 0.8rem; }
+            .ctrl-btn.play-btn { width: 36px; height: 36px; }
+            #timeline-area { padding: 6px 12px; min-height: 80px; }
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CCCCCC; border-radius: 10px; }
+        .recording-dot { width: 10px; height: 10px; border-radius: 50%; background: #000000; animation: pulse 1s infinite; display: inline-block; margin-right: 4px; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div id="topbar">
+        <span class="logo">🎬 Video Editor Studio Maker</span>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="btn-import-video" title="Import Video">📹 Video</button>
+        <button class="tb-btn" id="btn-import-audio" title="Import Audio">🎵 Audio</button>
+        <button class="tb-btn" id="btn-add-text" title="Add Text">🔤 Text</button>
+        <button class="tb-btn" id="btn-emoji-picker" title="Emojis">😀 Emoji</button>
+        <button class="tb-btn" id="btn-sticker-picker" title="Stickers">⭐ Stickers</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" id="btn-undo" title="Undo">↩️</button>
+        <button class="tb-btn" id="btn-redo" title="Redo">↪️</button>
+        <button class="tb-btn" id="btn-reset" title="Reset">🔄</button>
+        <button class="tb-btn" id="btn-save-project" title="Save">💾</button>
+        <button class="tb-btn" id="btn-open-project" title="Open">📂</button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn accent" id="btn-export" title="Export">📤 Export</button>
+        <span style="flex:1;"></span>
+        <button class="tb-btn icon-only" id="btn-toggle-left" title="Panel">☰</button>
+        <button class="tb-btn icon-only" id="btn-toggle-right" title="Properties">⚙️</button>
+    </div>
+    <div id="main-area">
+        <div id="left-panel">
+            <div class="panel-section"><div class="panel-title">Editing</div>
+                <button class="panel-btn" data-action="trim"><span class="ico">✂️</span> Trim</button>
+                <button class="panel-btn" data-action="cut"><span class="ico">🔪</span> Cut</button>
+                <button class="panel-btn" data-action="crop"><span class="ico">📐</span> Crop</button>
+                <button class="panel-btn" data-action="rotate"><span class="ico">🔄</span> Rotate</button>
+                <button class="panel-btn" data-action="flip-h"><span class="ico">↔️</span> Flip H</button>
+                <button class="panel-btn" data-action="flip-v"><span class="ico">↕️</span> Flip V</button>
+                <button class="panel-btn" data-action="resize"><span class="ico">📏</span> Resize</button>
+                <button class="panel-btn" data-action="delete-media"><span class="ico">🗑️</span> Delete</button>
+            </div>
+            <div class="panel-section"><div class="panel-title">Filters</div>
+                <button class="panel-btn filter-btn" data-filter="brightness"><span class="ico">☀️</span> Brightness</button>
+                <button class="panel-btn filter-btn" data-filter="contrast"><span class="ico">◑</span> Contrast</button>
+                <button class="panel-btn filter-btn" data-filter="saturation"><span class="ico">🌈</span> Saturation</button>
+                <button class="panel-btn filter-btn" data-filter="blur"><span class="ico">🌫️</span> Blur</button>
+                <button class="panel-btn filter-btn" data-filter="vignette"><span class="ico">🔘</span> Vignette</button>
+            </div>
+            <div class="panel-section"><div class="panel-title">Transitions</div>
+                <button class="panel-btn" data-transition="fade"><span class="ico">🌅</span> Fade</button>
+                <button class="panel-btn" data-transition="zoom"><span class="ico">🔍</span> Zoom</button>
+                <button class="panel-btn" data-transition="slide"><span class="ico">➡️</span> Slide</button>
+            </div>
+        </div>
+        <div id="preview-area">
+            <div id="canvas-container"><canvas id="main-canvas" width="1280" height="720"></canvas></div>
+            <div id="drop-overlay"><span class="drop-icon">📁</span><span>Drop files here</span></div>
+        </div>
+        <div id="right-panel">
+            <div class="prop-group" id="prop-text" style="display:none;">
+                <label>Text</label><input type="text" id="text-content" value="Hello" style="width:100%;padding:10px;border-radius:8px;border:1px solid #DDD;background:#FFF;color:#000;">
+                <label>Font</label><select id="text-font"><option>Arial</option><option>Georgia</option><option>Impact</option></select>
+                <label>Size</label><input type="range" id="text-size" min="12" max="200" value="48"><span id="text-size-val">48px</span>
+                <label>Color</label><input type="color" id="text-color" value="#000000">
+            </div>
+            <div class="prop-group" id="prop-emoji" style="display:none;">
+                <label>Size</label><input type="range" id="emoji-size" min="20" max="200" value="60">
+                <label>Opacity</label><input type="range" id="emoji-opacity" min="0" max="100" value="100">
+            </div>
+            <div class="prop-group" id="prop-filter" style="display:none;">
+                <label id="filter-label">Value</label><input type="range" id="filter-value" min="0" max="200" value="100"><span id="filter-value-display">100</span>
+                <div id="filter-presets" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+            </div>
+            <div class="prop-group"><label>Speed</label><select id="speed-select"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></div>
+            <div class="prop-group" id="prop-music" style="display:none;"><label>Music Vol</label><input type="range" id="music-volume" min="0" max="100" value="50"></div>
+        </div>
+    </div>
+    <div id="bottom-bar">
+        <div id="transport-controls">
+            <button class="ctrl-btn" id="btn-stop">⏹</button>
+            <button class="ctrl-btn" id="btn-skip-back">⏮</button>
+            <button class="ctrl-btn play-btn" id="btn-play">▶</button>
+            <button class="ctrl-btn" id="btn-skip-fwd">⏭</button>
+            <div id="seek-bar-container"><span id="time-display">00:00 / 00:00</span><input type="range" id="seek-bar" min="0" max="100" value="0" step="0.01"></div>
+            <div id="volume-container"><button class="ctrl-btn" id="btn-mute">🔊</button><input type="range" id="volume-slider" min="0" max="100" value="80"></div>
+        </div>
+        <div id="timeline-area">
+            <div class="tl-track" id="tl-video-track"><span class="tl-label">Video</span></div>
+            <div class="tl-track" id="tl-audio-track"><span class="tl-label">Audio</span></div>
+            <div class="tl-track" id="tl-text-track"><span class="tl-label">Text</span></div>
+        </div>
+    </div>
+    <input type="file" id="file-input-video" accept="video/*,.mp4,.mov,.avi,.mkv,.webm" style="display:none;" multiple>
+    <input type="file" id="file-input-audio" accept="audio/*,.mp3,.wav,.aac,.m4a,.ogg" style="display:none;" multiple>
+    <input type="file" id="file-input-project" accept=".json" style="display:none;">
+</div>
+<div id="toast"></div>
+<div id="modal-container"></div>
+<script>
+    (function() {
+        const $ = (s) => document.querySelector(s);
+        const mainCanvas = $('#main-canvas');
+        const ctx = mainCanvas.getContext('2d');
+        const dropOverlay = $('#drop-overlay');
+        const seekBar = $('#seek-bar');
+        const timeDisplay = $('#time-display');
+        const volumeSlider = $('#volume-slider');
+        const speedSelect = $('#speed-select');
+        const toast = $('#toast');
+        const modalContainer = $('#modal-container');
+        const btnPlay = $('#btn-play');
+        const btnMute = $('#btn-mute');
+        const leftPanel = $('#left-panel');
+        const rightPanel = $('#right-panel');
+        const state = {
+            videoSources: [], audioSources: [], currentVideoIndex: 0, overlays: [], selectedOverlayId: null,
+            isPlaying: false, currentTime: 0, duration: 0, volume: 0.8, muted: false, speed: 1, zoom: 1,
+            filters: { brightness:100, contrast:100, saturation:100, blur:0, vignette:0, grayscale:0, invert:0, sepia:0 },
+            activeFilter:'brightness', transition:null, transitionProgress:0, undoStack:[], redoStack:[],
+            trimStart:0, trimEnd:null, cropRegion:null, flipH:false, flipV:false, rotation:0,
+            musicGainNode:null, musicVolume:0.5, musicLoop:false, animationFrameId:null
+        };
+        let overlayIdCounter = 0;
+        const generateId = () => 'ovl_' + (++overlayIdCounter);
+        const videoElement = document.createElement('video');
+        videoElement.crossOrigin = 'anonymous'; videoElement.preload = 'auto'; videoElement.playsInline = true;
+        const musicElement = document.createElement('audio');
+        musicElement.crossOrigin = 'anonymous'; musicElement.preload = 'auto';
+        let audioCtx = null;
+        function init() {
+            setupEventListeners(); updateTimelineUI(); renderFrame(0); updateTimeDisplay(); updateCanvasSize();
+            toastMsg('Video Editor Studio Maker ready.');
+        }
+        function setupEventListeners() {
+            videoElement.addEventListener('loadedmetadata', () => {
+                if (state.trimEnd === null) state.trimEnd = videoElement.duration;
+                state.duration = videoElement.duration; seekBar.max = state.duration*100; updateTimeDisplay(); updateTimelineUI();
+            });
+            videoElement.addEventListener('timeupdate', () => { if(!state.isDraggingOverlay){ state.currentTime=videoElement.currentTime; seekBar.value=state.currentTime*100; updateTimeDisplay(); } });
+            videoElement.addEventListener('ended', ()=>{ state.isPlaying=false; btnPlay.textContent='▶'; });
+            btnPlay.addEventListener('click', togglePlay);
+            $('#btn-stop').addEventListener('click', ()=>{ videoElement.pause(); state.isPlaying=false; btnPlay.textContent='▶'; videoElement.currentTime=state.trimStart; });
+            seekBar.addEventListener('input', ()=>{ const t=parseFloat(seekBar.value)/100; videoElement.currentTime=t; state.currentTime=t; if(!state.isPlaying) renderFrame(t); });
+            volumeSlider.addEventListener('input', ()=>{ state.volume=parseInt(volumeSlider.value)/100; videoElement.volume=state.muted?0:state.volume; });
+            btnMute.addEventListener('click', ()=>{ state.muted=!state.muted; videoElement.volume=state.muted?0:state.volume; btnMute.textContent=state.muted?'🔇':'🔊'; });
+            speedSelect.addEventListener('change', ()=>{ state.speed=parseFloat(speedSelect.value); videoElement.playbackRate=state.speed; });
+            $('#btn-import-video').addEventListener('click', ()=>$('#file-input-video').click());
+            $('#btn-import-audio').addEventListener('click', ()=>$('#file-input-audio').click());
+            $('#file-input-video').addEventListener('change', handleVideoImport);
+            $('#file-input-audio').addEventListener('change', handleAudioImport);
+            $('#btn-add-text').addEventListener('click', addTextOverlay);
+            $('#btn-emoji-picker').addEventListener('click', openEmojiPicker);
+            $('#btn-sticker-picker').addEventListener('click', openStickerPicker);
+            $('#btn-undo').addEventListener('click', undo); $('#btn-redo').addEventListener('click', redo);
+            $('#btn-reset').addEventListener('click', resetProject);
+            $('#btn-export').addEventListener('click', openExportModal);
+            $('#btn-save-project').addEventListener('click', saveProjectToFile);
+            $('#btn-open-project').addEventListener('click', ()=>$('#file-input-project').click());
+            $('#file-input-project').addEventListener('change', loadProjectFromFile);
+            $('#btn-toggle-left').addEventListener('click', ()=>leftPanel.classList.toggle('mobile-open'));
+            $('#btn-toggle-right').addEventListener('click', ()=>rightPanel.classList.toggle('mobile-open'));
+            document.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ e.preventDefault(); togglePlay(); } });
+            previewArea.addEventListener('dragover',(e)=>{e.preventDefault(); dropOverlay.classList.add('visible');});
+            previewArea.addEventListener('dragleave',()=>dropOverlay.classList.remove('visible'));
+            previewArea.addEventListener('drop', handleDrop);
+            mainCanvas.addEventListener('mousedown', onCanvasMouseDown);
+            mainCanvas.addEventListener('mousemove', onCanvasMouseMove);
+            mainCanvas.addEventListener('mouseup', onCanvasMouseUp);
+            window.addEventListener('resize', updateCanvasSize);
+        }
+        function handleVideoImport(e){ const files=Array.from(e.target.files); files.forEach(f=>{ const url=URL.createObjectURL(f); state.videoSources.push({file:f,url:url,duration:0,name:f.name}); }); e.target.value=''; if(state.videoSources.length>0) loadVideoSource(0); updateTimelineUI(); }
+        function handleAudioImport(e){ const files=Array.from(e.target.files); files.forEach(f=>{ const url=URL.createObjectURL(f); state.audioSources.push({file:f,url:url,name:f.name}); }); e.target.value=''; updateTimelineUI(); }
+        function handleDrop(e){ e.preventDefault(); dropOverlay.classList.remove('visible'); const files=Array.from(e.dataTransfer.files); files.forEach(f=>{ if(f.type.startsWith('video/')){ const url=URL.createObjectURL(f); state.videoSources.push({file:f,url:url,duration:0,name:f.name}); } }); if(state.videoSources.length>0) loadVideoSource(0); updateTimelineUI(); }
+        function loadVideoSource(i){ if(i<0||i>=state.videoSources.length) return; state.currentVideoIndex=i; videoElement.src=state.videoSources[i].url; videoElement.load(); state.currentTime=0; state.trimStart=0; state.trimEnd=null; btnPlay.textContent='▶'; }
+        function togglePlay(){ if(state.videoSources.length===0) return; if(state.isPlaying){ videoElement.pause(); state.isPlaying=false; btnPlay.textContent='▶'; } else { videoElement.play().then(()=>{ state.isPlaying=true; btnPlay.textContent='⏸'; renderLoop(); }).catch(()=>{}); } }
+        function renderLoop(){ if(!state.isPlaying) return; state.currentTime=videoElement.currentTime; seekBar.value=state.currentTime*100; updateTimeDisplay(); renderFrame(state.currentTime); state.animationFrameId=requestAnimationFrame(renderLoop); }
+        function updateTimeDisplay(){ timeDisplay.textContent = formatTime(state.currentTime)+' / '+formatTime(state.trimEnd||state.duration||0); }
+        function formatTime(s){ const m=Math.floor(s/60); const sec=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); }
+        function updateCanvasSize(){ const cw=1280,ch=720; mainCanvas.style.width='100%'; mainCanvas.style.height='auto'; }
+        function renderFrame(t){ ctx.clearRect(0,0,mainCanvas.width,mainCanvas.height); if(videoElement.readyState>=2){ ctx.drawImage(videoElement,0,0,mainCanvas.width,mainCanvas.height); } state.overlays.forEach(o=>{ if(o.type==='text'){ ctx.font=`${o.fontSize||48}px Arial`; ctx.fillStyle=o.fontColor||'#000'; ctx.fillText(o.content, o.x, o.y+40); } }); }
+        function addTextOverlay(){ const ovl={type:'text',x:200,y:200,width:200,height:60,content:'Text',fontSize:48,fontColor:'#000000',id:generateId()}; state.overlays.push(ovl); state.selectedOverlayId=ovl.id; updateTimelineUI(); renderFrame(state.currentTime); }
+        function openEmojiPicker(){ modalContainer.innerHTML='<div class="modal-overlay"><div class="modal"><h3>Emoji</h3><div class="emoji-grid">😀😂❤️🔥⭐</div></div></div>'; modalContainer.querySelector('.modal-overlay').addEventListener('click',()=>modalContainer.innerHTML=''); }
+        function openStickerPicker(){ modalContainer.innerHTML='<div class="modal-overlay"><div class="modal"><h3>Stickers</h3><div class="sticker-grid">⭐❤️🎯</div></div></div>'; }
+        function openExportModal(){ if(state.videoSources.length===0) return; modalContainer.innerHTML='<div class="modal-overlay"><div class="modal"><h3>Export</h3><button class="tb-btn" id="export-start">Export</button></div></div>'; $('#export-start').addEventListener('click',()=>{ toastMsg('Export started (simulated)'); modalContainer.innerHTML=''; }); }
+        function updateTimelineUI(){ const vt=$('#tl-video-track'); vt.querySelectorAll('.tl-clip').forEach(c=>c.remove()); state.videoSources.forEach((s,i)=>{ const clip=document.createElement('span'); clip.className='tl-clip video-clip'; clip.textContent=s.name; vt.appendChild(clip); }); }
+        function saveProjectToFile(){ toastMsg('Project saved.'); }
+        function loadProjectFromFile(e){ toastMsg('Project loaded.'); e.target.value=''; }
+        function undo(){ toastMsg('Undo'); } function redo(){ toastMsg('Redo'); } function resetProject(){ toastMsg('Reset'); }
+        function onCanvasMouseDown(e){} function onCanvasMouseMove(e){} function onCanvasMouseUp(e){}
+        function toastMsg(m){ toast.textContent=m; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2000); }
+        updateCanvasSize(); renderFrame(0); updateTimeDisplay(); init();
+    })();
+</script>
+</body>
+</html>
