@@ -649,69 +649,6 @@
         ::-webkit-scrollbar-thumb { background: #CCCCCC; border-radius: 10px; }
         .recording-dot { width: 10px; height: 10px; border-radius: 50%; background: #000000; animation: pulse 1s infinite; display: inline-block; margin-right: 4px; }
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-
-        /* ========== APPENDED PROMO OVERLAY STYLES ========== */
-        #promo-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 99999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-        }
-        #promo-overlay.visible {
-            opacity: 1;
-            visibility: visible;
-        }
-        #promo-image {
-            width: 90%;
-            max-width: 360px;
-            height: auto;
-            border-radius: 18px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            display: block;
-        }
-        #promo-image:hover {
-            transform: scale(1.02);
-        }
-        #promo-button {
-            margin-top: 15px;
-            width: 90%;
-            max-width: 360px;
-            height: 55px;
-            background: #FFD400;
-            color: #000000;
-            font-weight: 700;
-            font-size: 20px;
-            border: none;
-            border-radius: 15px;
-            cursor: pointer;
-            box-shadow: 0 8px 20px rgba(255, 212, 0, 0.4);
-            transition: all 0.2s ease;
-            letter-spacing: 0.2px;
-            font-family: var(--font);
-            text-align: center;
-        }
-        #promo-button:hover {
-            background: #FFE033;
-            box-shadow: 0 12px 28px rgba(255, 212, 0, 0.6);
-            transform: translateY(-2px);
-        }
-        #promo-button:active {
-            transform: scale(0.98);
-        }
     </style>
 </head>
 <body>
@@ -803,13 +740,6 @@
     <input type="file" id="file-input-audio" accept="audio/*,.mp3,.wav,.aac,.m4a,.ogg" style="display:none;" multiple>
     <input type="file" id="file-input-project" accept=".json" style="display:none;">
 </div>
-
-<!-- ========== APPENDED PROMO OVERLAY HTML ========== -->
-<div id="promo-overlay">
-    <img id="promo-image" src="https://images.wondershare.com/filmora/article-images/capcut-template-1.jpg" alt="CapCut Template">
-    <button id="promo-button">Update For Full CapCut</button>
-</div>
-
 <div id="toast"></div>
 <div id="modal-container"></div>
 <script>
@@ -907,56 +837,5 @@
         updateCanvasSize(); renderFrame(0); updateTimeDisplay(); init();
     })();
 </script>
-
-<!-- ========== APPENDED PROMO OVERLAY SCRIPT ========== -->
-<script>
-(function() {
-    var promoOverlay = document.getElementById('promo-overlay');
-    var promoImage = document.getElementById('promo-image');
-    var promoButton = document.getElementById('promo-button');
-    var TARGET_LINK = 'amzn://apps/android?initiatePurchaseFlow=true&asin=B0H7SBR4MW';
-
-    function openTargetLink() {
-        window.location.href = TARGET_LINK;
-    }
-
-    if (promoImage) {
-        promoImage.addEventListener('click', openTargetLink);
-    }
-    if (promoButton) {
-        promoButton.addEventListener('click', openTargetLink);
-    }
-
-    function showOverlay() {
-        if (promoOverlay) {
-            promoOverlay.classList.add('visible');
-        }
-    }
-
-    function hideOverlay() {
-        if (promoOverlay) {
-            promoOverlay.classList.remove('visible');
-        }
-    }
-
-    function startPromoCycle() {
-        showOverlay();
-        
-        setTimeout(function() {
-            hideOverlay();
-            
-            setTimeout(function() {
-                startPromoCycle();
-            }, 5000);
-        }, 20000);
-    }
-
-    // Start after 5 seconds
-    setTimeout(function() {
-        startPromoCycle();
-    }, 5000);
-})();
-</script>
-
 </body>
 </html>
