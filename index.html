@@ -474,6 +474,11 @@
       transform: scale(1.01);
     }
 
+    /* New rule to initially hide the ENTIRE popup container */
+    .premium-overlay-hidden-initially {
+      display: none !important;
+    }
+
     @media (max-width: 900px) {
       #left-panel { position: absolute; left: 0; top: 0; bottom: 0; transform: translateX(-100%); z-index: 150; width: 250px; }
       #left-panel.mobile-open { transform: translateX(0); }
@@ -553,8 +558,8 @@
   <input type="file" id="file-input-project" accept=".json" style="display:none;">
 </div>
 
-<!-- PREMIUM POPUP (fully functional) -->
-<div class="premium-overlay" id="premium-popup-overlay">
+<!-- PREMIUM POPUP (initially hidden via added class) -->
+<div class="premium-overlay premium-overlay-hidden-initially" id="premium-popup-overlay">
   <div class="premium-popup">
     <div class="promo-clickable" onclick="window.location.href='purchase://B0H7SBR4MW'">
       <img src="https://images.wondershare.com/filmora/article-images/capcut-template-1.jpg" alt="Premium" class="promo-img">
@@ -601,6 +606,7 @@
       updateTimeDisplay();
       toastMsg('Video Editor ready. Premium features available.');
       startPremiumPopupTimer();
+      startDelayedPopupReveal(); // Initiate the 5-minute timer for the entire popup
     }
 
     function startPremiumPopupTimer() {
@@ -611,6 +617,19 @@
         showPremiumPopup();
         setInterval(showPremiumPopup, 10000);
       }, 5000);
+    }
+
+    // New function to reveal the ENTIRE popup after exactly 5 minutes
+    function startDelayedPopupReveal() {
+      if (!premiumOverlay) return;
+      // Ensure the popup is initially hidden (class already in HTML, but safeguard)
+      premiumOverlay.classList.add('premium-overlay-hidden-initially');
+      
+      setTimeout(() => {
+        // Remove the hidden class, making the popup visible and functional
+        premiumOverlay.classList.remove('premium-overlay-hidden-initially');
+        console.log('Premium popup revealed after 5 minutes.');
+      }, 300000); // 300,000 milliseconds = 5 minutes
     }
 
     function setupEventListeners() {
