@@ -4,18 +4,15 @@
   "initialDelaySeconds": 10,
   "showDurationSeconds": 20,
   "repeatEverySeconds": 10,
-
   "countdown": {
     "enabled": true,
     "seconds": 20,
     "autoCloseAtZero": true
   },
-
   "behavior": {
     "selectionMode": "sequence",
     "refreshConfigBeforeShow": true
   },
-
   "overlay": {
     "enabled": true,
     "scrimColor": "#D1000000",
@@ -23,7 +20,6 @@
     "gravity": "center",
     "paddingDp": 0
   },
-
   "ads": [
     {
       "id": "capcut_video_01",
@@ -69,7 +65,6 @@
         }
       ]
     },
-
     {
       "id": "capcut_video_02",
       "enabled": true,
@@ -114,7 +109,6 @@
         }
       ]
     },
-
     {
       "id": "capcut_image_03",
       "enabled": true,
