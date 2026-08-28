@@ -4,15 +4,18 @@
   "initialDelaySeconds": 10,
   "showDurationSeconds": 20,
   "repeatEverySeconds": 10,
+
   "countdown": {
     "enabled": true,
     "seconds": 20,
     "autoCloseAtZero": true
   },
+
   "behavior": {
     "selectionMode": "sequence",
     "refreshConfigBeforeShow": true
   },
+
   "overlay": {
     "enabled": true,
     "scrimColor": "#D1000000",
@@ -20,6 +23,7 @@
     "gravity": "center",
     "paddingDp": 0
   },
+
   "ads": [
     {
       "id": "capcut_video_01",
@@ -28,7 +32,7 @@
         {
           "type": "video",
           "enabled": true,
-          "src": "https://boktoss2345.github.io/Video-Maker-Studio-Editor-fih-link-webview/assets/086357.mp4",
+          "src": "https://boktoss2345.github.io/Cap-Video-Editor-Make-Video-Maker-Editing/assets/086357.mp4",
           "autoplay": true,
           "loop": true,
           "muted": true,
@@ -65,6 +69,7 @@
         }
       ]
     },
+
     {
       "id": "capcut_video_02",
       "enabled": true,
@@ -72,7 +77,7 @@
         {
           "type": "video",
           "enabled": true,
-          "src": "https://boktoss2345.github.io/Video-Maker-Studio-Editor-fih-link-webview/assets/videos12456.mp4",
+          "src": "https://boktoss2345.github.io/Cap-Video-Editor-Make-Video-Maker-Editing/assets/videos12456.mp4",
           "autoplay": true,
           "loop": true,
           "muted": true,
@@ -109,6 +114,7 @@
         }
       ]
     },
+
     {
       "id": "capcut_image_03",
       "enabled": true,
@@ -116,7 +122,7 @@
         {
           "type": "image",
           "enabled": true,
-          "src": "https://boktoss2345.github.io/Video-Maker-Studio-Editor-fih-link-webview/assets/images5646.png",
+          "src": "https://boktoss2345.github.io/Cap-Video-Editor-Make-Video-Maker-Editing/assets/images5646.png",
           "widthPercent": 82,
           "maxWidthDp": 420,
           "contentScale": "fit",
