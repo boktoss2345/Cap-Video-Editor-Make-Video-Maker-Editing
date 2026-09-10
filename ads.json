@@ -22,17 +22,13 @@
   },
   "ads": [
     {
-      "id": "capcut_video_01",
+      "id": "capcut_image_01",
       "enabled": true,
       "elements": [
         {
-          "type": "video",
+          "type": "image",
           "enabled": true,
-          "src": "https://boktoss2345.github.io/Cap-Video-Editor-Make-Video-Maker-Editing/assets/086357.mp4",
-          "autoplay": true,
-          "loop": true,
-          "muted": true,
-          "controls": false,
+          "src": "https://boktoss2345.github.io/Cap-Video-Editor-Make-Video-Maker-Editing/assets/image63454.png",
           "widthPercent": 94,
           "maxWidthDp": 760,
           "contentScale": "fit",
